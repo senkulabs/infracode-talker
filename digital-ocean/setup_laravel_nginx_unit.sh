@@ -146,6 +146,28 @@ install_certbot() {
     log_info "Certbot installed successfully"
 }
 
+# Step 8: Install ACL
+install_acl() {
+    log_info "Installing ACL (Access Control List)..."
+
+    apt install -y acl
+
+    log_info "ACL installed successfully"
+}
+
+# Step 9: Create deployer user + give access to deployer user
+create_deployer_user() {
+    log_info "Create deployer user..."
+
+    adduser --disabled-password --gecos "" deployer
+
+    log_info "Give deployer user access to /var/www directory..."
+    setfacl -R -m u:deployer:rwx /var/www
+
+    log_info "Add deployer user to unit (nginx unit) group..."
+    usermod -a -G unit deployer
+}
+
 # Main execution
 main() {
     log_info "Starting Laravel with Nginx Unit setup..."
@@ -160,6 +182,8 @@ main() {
     install_postgresql
     install_redis
     install_certbot
+    install_acl
+    create_deployer_user
 }
 
 # Run main function
