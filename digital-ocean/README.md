@@ -2,6 +2,8 @@
 
 ## Droplets
 
+> In initial deployment, you must run these steps as a root user.
+
 This is an instruction guide how to setup web server for Laravel framework with using:
 
 - PHP
@@ -25,6 +27,6 @@ chmod +x setup_laravel_nginx_unit.sh
 sudo ./setup_laravel_nginx_unit.sh
 ```
 
-3. Deploy web app using GitLab CI/CD or GitHub actions.
+3. Deploy web app using GitLab CI/CD or GitHub actions. Please see [deploy.php](deploy.php) file.
 
-4. Setup Nginx unit configuration and SSL using Let's encrypt
+4. Setup Nginx unit configuration and SSL using Let's encrypt.
