@@ -168,6 +168,19 @@ create_deployer_user() {
     usermod -a -G unit deployer
 }
 
+# Step 10: Create SSH Key Pair
+create_ssh_key_pair() {
+    log_info "Switch to deployer user"
+    sudo -u deployer -s
+
+    log_info "Create SSH Key Pair..."
+    ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f ~/.ssh/id_ed25519
+
+    log_info "Create Authorized Keys..."
+    cd /home/deployer/.ssh
+    echo "" >> authorized_keys && cat id_ed25519.pub >> authorized_keys
+}
+
 # Main execution
 main() {
     log_info "Starting Laravel with Nginx Unit setup..."
@@ -184,6 +197,7 @@ main() {
     install_certbot
     install_acl
     create_deployer_user
+    create_ssh_key_pair
 }
 
 # Run main function
