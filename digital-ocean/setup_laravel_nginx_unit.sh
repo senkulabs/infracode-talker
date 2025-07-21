@@ -170,15 +170,14 @@ create_deployer_user() {
 
 # Step 10: Create SSH Key Pair
 create_ssh_key_pair() {
-    log_info "Switch to deployer user"
-    sudo -u deployer -s
-
-    log_info "Create SSH Key Pair..."
-    ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f ~/.ssh/id_ed25519
-
-    log_info "Create Authorized Keys..."
-    cd /home/deployer/.ssh
-    echo "" >> authorized_keys && cat id_ed25519.pub >> authorized_keys
+    log_info "Creating SSH Key Pair for deployer user..."
+    
+    # Run commands as deployer user without interactive shell
+    sudo -u deployer mkdir -p /home/deployer/.ssh
+    sudo -u deployer ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
+    sudo -u deployer sh -c 'cd /home/deployer/.ssh && cat id_ed25519.pub >> authorized_keys'
+    sudo -u deployer chmod 600 /home/deployer/.ssh/authorized_keys
+    sudo -u deployer chmod 700 /home/deployer/.ssh
 }
 
 # Main execution
