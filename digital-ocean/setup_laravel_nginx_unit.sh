@@ -35,7 +35,7 @@ check_root() {
 install_php() {
     log_info "Installing PHP and Laravel extensions..."
     apt update
-    apt install php-bcmath php-cli php-curl php-gd php-mbstring php-mysql php-pgsql php-redis php-sqlite3 php-xml php-zip unzip -y
+    apt install php-intl php-bcmath php-cli php-curl php-gd php-mbstring php-mysql php-pgsql php-redis php-sqlite3 php-xml php-zip unzip -y
     log_info "PHP and extensions installed successfully"
 }
 
