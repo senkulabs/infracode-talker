@@ -26,11 +26,11 @@ This is a brief instruction how to setup web server for Laravel framework using:
 |:-----|:------------------------|:--------------------|:-------------|:---------|
 | A    | laravel.senku.stream    | <droplet-ip-public> | DNS only     | New Cell |
 
-3. Put `initial-setup.sh` file into a `/tmp` directory in the droplet and make it executable. Then, run the executable file to run basic software installation like PHP, Nginx Unit, Postgres, Redis, create deployer user, and setup SSH key pair.
+3. Put `setup.sh` file into a `/tmp` directory in the droplet and make it executable. Then, run the executable file to run basic software installation like PHP, Nginx Unit, Postgres, Redis, create deployer user, and setup SSH key pair.
 
 ```sh
-chmod +x initial-setup.sh
-sudo ./initial-setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
 ```
 
 4. Copy SSH private key from `deployer` user for CI/CD. Save the private key as `SSH_PRIVATE_KEY`.
