@@ -16,7 +16,7 @@ set('rsync_src', __DIR__);
 host('laravelapp.senku.stream') // Name of the server
     ->set('hostname', 'laravelapp.senku.stream') // Hostname or IP address
     ->set('remote_user', 'deployer') // SSH user
-    ->set('deploy_path', '/var/www/laravelapp.senku.stream'); // Deploy path
+    ->set('deploy_path', '/var/www/html'); // Deploy path
 
 // Hooks
 task('deploy:secrets', function () {
