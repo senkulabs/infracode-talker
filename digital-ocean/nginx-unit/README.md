@@ -11,16 +11,16 @@ This is a brief instruction how to setup web server for Laravel framework using:
 
 > You must run these steps as a root user or user with sudo access.
 
-1. Create a $12 droplet with specification like this:
+1. Create [a droplet in Digital Ocean](https://m.do.co/c/303e46500afd). You may choose droplet with $6 or $12.
 
-```txt
-1GB VCpu
-2GB RAM
-50GB SSD
-2000 GiB transfer
-```
+| $6                | $12               |
+|:------------------|:------------------|
+| 1GB vCPU          | 1GB vCPU          |
+| 1GB RAM           | 2GB RAM           |
+| 25GB SSD          | 50GB SSD          |
+| 1000 GiB transfer | 2000 GiB transfer |
 
-2. After droplet created, then create `A record` by using the IP public of droplet into DNS. I'm using Cloudflare as DNS. We will use the `Name` of domain as a hostname in the `deploy.php` file.
+2. Once droplet created, create `A record` by using the IP public of droplet into DNS. I'm using Cloudflare as DNS. We will use the `Name` of domain as a hostname in the `deploy.php` file.
 
 | Type | Name                    | Content             | Proxy Status | TTL      |
 |:-----|:------------------------|:--------------------|:-------------|:---------|
