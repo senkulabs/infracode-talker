@@ -7,6 +7,14 @@
     "routes": [
         {
             "match": {
+                "uri": "/.well-known/acme-challenge/*"
+            },
+            "action": {
+                "share": "/var/www/html/$uri"
+            }
+        },
+        {
+            "match": {
                 "uri": "!/index.php"
             },
             "action": {

@@ -1,0 +1,20 @@
+-- Connect to PostgreSQL as postgres
+sudo -u postgres psql
+
+-- Create your Laravel application database
+CREATE DATABASE laravel_production;
+
+-- Create a dedicated user for your Laravel app
+CREATE USER laravel_app WITH PASSWORD 'Laravel@321';
+
+-- Switch to your application database first
+\c laravel_production
+
+-- Grant the necessary privileges to the laravel_app user
+GRANT ALL PRIVILEGES ON SCHEMA public TO laravel_app;
+GRANT ALL PRIVILEGES ON DATABASE laravel_production TO laravel_app;
+
+-- Set default privileges for future objects
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO laravel_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO laravel_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO laravel_app;
