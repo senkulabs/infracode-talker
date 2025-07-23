@@ -11,7 +11,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 
 > You must run these steps as a root user or user with sudo access.
 
-1. Create [a droplet in Digital Ocean](https://m.do.co/c/303e46500afd). You may choose droplet with $6 or $12.
+1. Create [a droplet in Digital Ocean](https://m.do.co/c/303e46500afd) with latest Ubuntu LTS. You may choose droplet with $6 or $12.
 
 | $6                | $12               |
 |:------------------|:------------------|
@@ -26,34 +26,25 @@ This is a brief instruction how to setup web server for Laravel framework using:
 |:-----|:------------------------|:--------------------|:-------------|:---------|
 | A    | laravel.senku.stream    | <droplet-ip-public> | DNS only     | New Cell |
 
-3. Put `setup.sh` file into a `/tmp` directory in the droplet and make it executable. Then, run the executable file to run basic software installation like PHP, Nginx Unit, Postgres, Redis, create deployer user, and setup SSH key pair.
+3. Put `setup.sh` file into a `/tmp` directory in the droplet and make it executable. This executable file do:
+
+- Install PHP and PHP extensions
+- Install Nginx unit
+- Install Composer
+- Create `/var/www` directory
+- Install PostgreSQL
+- Configure PostgreSQL database
+- Install Redis
+- Install Certbot
+- Install ACL
+- Create deployer user
+- Configure deployer sudo
+- Create SSH key pair
+- Display SSH info
 
 ```sh
 chmod +x setup.sh
 sudo ./setup.sh
-```
-
-4. Copy SSH private key from `deployer` user for CI/CD. Save the private key as `SSH_PRIVATE_KEY`.
-
-```sh
-# switch to deployer user with command
-# sudo -u deployer -s
-cd /home/deployer/.ssh
-cat id_ed25519
-```
-
-After run the `cat` command, copy all the blocks of SSH private key.
-
-```
------BEGIN OPENSSH PRIVATE KEY-----
-long_text_goes_here
------END OPENSSH PRIVATE KEY-----
-```
-
-5. Copy SSH known hosts value for CI/CD. Save it as `SSH_KNOWN_HOSTS`. This used for to prevent man in the middle attack.
-
-```sh
-ssh-keyscan <hostname or public-ip-droplet> | grep "ssh-ed25519"
 ```
 
 6. Prepare a Laravel project. Then, install the [deployer](https://deployer.org) tool and create initial `deploy.php` file.
@@ -98,3 +89,5 @@ certbot certonly --webroot -w /var/www/html -d laravel.senku.stream --non-intera
 ```sh
 curl -X PUT --data-binary @/tmp/unit-https.json --unix-socket /var/run/control.unit.sock http://localhost/config/
 ```
+
+Now, everytime you access the `laravel.senku.stream`, it will redirect to HTTPS.

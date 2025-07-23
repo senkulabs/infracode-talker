@@ -298,7 +298,30 @@ create_deployer_user() {
     log_info "Deployer user created successfully"
 }
 
-# Step 10: Create SSH Key Pair
+# Step 11: Configure sudo access for deployer user
+configure_deployer_sudo() {
+    log_step "Configuring sudo access for deployer user..."
+
+    # Create sudoers file for deployer user
+    cat > /etc/sudoers.d/deployer << 'EOF'
+# Allow deployer user to run specific commands without password
+deployer ALL=(ALL) NOPASSWD: /usr/bin/curl -X GET /var/run/control.unit.sock*
+EOF
+
+    # Set proper permissions
+    chmod 440 /etc/sudoers.d/deployer
+
+    # Validate the sudoers file
+    if visudo -cf /etc/sudoers.d/deployer; then
+        log_info "Sudo configuration for deployer user created successfully"
+    else
+        log_error "Invalid sudoers configuration detected"
+        rm -f /etc/sudoers.d/deployer
+        exit 1
+    fi
+}
+
+# Step 12: Create SSH Key Pair
 create_ssh_key_pair() {
     log_step "Creating SSH Key Pair for deployer user..."
     
@@ -336,6 +359,7 @@ show_summary() {
     echo -e "✅ Certbot installed"
     echo -e "✅ ACL installed"
     echo -e "✅ Deployer user created"
+    echo -e "✅ Deployer sudo access configured"
     echo -e "✅ SSH Key Pair generated"
     echo ""
     echo -e "${YELLOW}Important Notes:${NC}"
@@ -347,6 +371,53 @@ show_summary() {
     echo -e "  - Password: ${DB_PASS}"
     echo ""
     echo -e "${GREEN}Setup completed successfully!${NC}"
+}
+
+display_ssh_info() {
+    log_step "Display SSH Key Information..."
+
+    echo ""
+    echo -e "${BLUE}================================="
+    echo -e "    SSH KEY INFORMATION"
+    echo -e "=================================${NC}"
+    echo ""
+
+    # Check if private key exists
+    if [[ -f /home/deployer/.ssh/id_ed25519 ]]; then
+        echo -e "${YELLOW}SSH Private Key:${NC}"
+        echo -e "${GREEN}Copy this private key to your CI/CD system:${NC}"
+        echo ""
+        cat /home/deployer/.ssh/id_ed25519
+        echo ""
+        echo ""
+    else
+        log_error "SSH private key not found!"
+    fi
+
+    # SSH Host Key Scan
+    echo -e "${YELLOW}Host Key Information:${NC}"
+    echo -e "${GREEN}Add these to your known_hosts file or CI/CD system:${NC}"
+    echo ""
+    
+    # Get server information
+    local hostname=$(hostname -f 2>/dev/null || hostname)
+    local ip_address=$(hostname -I | awk '{print $1}')
+    
+    # Scan for different key types
+    for host in "localhost" "$hostname" "$ip_address"; do
+        if [[ -n "$host" && "$host" != "localhost" ]] || [[ "$host" == "localhost" ]]; then
+            echo "# Host keys for: $host"
+            if command -v ssh-keyscan >/dev/null 2>&1; then
+                ssh-keyscan -t ed25519 "$host" 2>/dev/null | head -10
+            else
+                log_warn "ssh-keyscan command not found"
+            fi
+            echo ""
+        fi
+    done
+    
+    echo -e "${BLUE}=================================${NC}"
+    echo ""
 }
 
 # Main execution
@@ -389,9 +460,12 @@ main() {
     install_certbot
     install_acl
     create_deployer_user
+    configure_deployer_sudo
     create_ssh_key_pair
 
     show_summary
+
+    display_ssh_info
 }
 
 # Run main function
