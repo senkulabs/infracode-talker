@@ -10,6 +10,11 @@ set('keep_releases', 5); // Keep 5 releases
 set('http_user', 'unit');
 set('http_group', 'unit');
 
+/**
+ * NOTE:
+ * The __DIR__ value means that the source of rsync comes from GitLab CI build
+ * (assumes deploy.php is in project root)
+ */
 set('rsync_src', __DIR__);
 
 // Hosts
