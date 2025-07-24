@@ -30,7 +30,7 @@ task('deployer:acme-challenge', function () {
 });
 
 task('unit:reload', function () {
-    return run('sudo /usr/bin/curl -X GET --unix-socket /var/run/control.unit.sock http://localhost/control/applications/laravel/restart');
+    return run('/usr/bin/curl -X GET --unix-socket /var/run/control.unit.sock http://localhost/control/applications/laravel/restart');
 });
 
 task('deploy:update_code')->disable();
