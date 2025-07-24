@@ -47,7 +47,7 @@ chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-6. Prepare a Laravel project. Then, install the [deployer](https://deployer.org) tool and create initial `deploy.php` file.
+4. Prepare a Laravel project. Then, install the [deployer](https://deployer.org) tool and create initial `deploy.php` file.
 
 ```sh
 composer require deployer/deployer --dev
@@ -60,21 +60,23 @@ If you're using Windows (not WSL) + Laragon, then use this command to create ini
 .vendor\bin\dep.bat init -n
 ```
 
-6. Replace the content of initial `deploy.php` with the specific Laravel deployment setup [deploy.php](deploy.php) in this repository.
+5. Replace the content of initial `deploy.php` with the specific Laravel deployment setup [deploy.php](deploy.php) in this repository.
 
-7. Create `.gitlab-ci.yml` file and use the content of [.gitlab-ci.yml](.gitlab-ci.yml.txt) in this repository. Then hit deploy!
+6. Create `.gitlab-ci.yml` file and use the content of [.gitlab-ci.yml](.gitlab-ci.yml.txt) in this repository. Then hit deploy!
 
-8. Create `unit-http.json` file in `/tmp`directory in the droplet. Then, use the content of [unit-http.json](unit-http.json) from this repository. The file contains the routes direct to Laravel application and `.well-known/acme-challenge` for create Let's Encrypt Certificate.
+7. Create `unit-http.json` file in `/tmp`directory in the droplet. Then, use the content of [unit-http.json](unit-http.json) from this repository. The file contains the routes direct to Laravel application and `.well-known/acme-challenge` for create Let's Encrypt Certificate.
 
-9. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
+8. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
 
 ```sh
 curl -X PUT --data-binary @/tmp/unit-http.json --unix-socket /var/run/control.unit.sock http://localhost/config/
 ```
 
-10. Each time you deploy using Deployer, Deployer will create a folder inside `releases` folder. For example: in initial deployment it create folder `1` in `releases` then it create symbolic link with `current` folder. If any git push happen then Deployer will create another folder called `2` in releases folder then move the symbolic link from folder `1` to `2` into the `current` folder. Because we use this approach then we need to tell Nginx Unit to reload the service that belongs to this app. In [deploy.php](deploy.php) file, we create task called `unit:reload`. This tell the Nginx Unit to reload the `applications/laravel` that we defined in [unit-http.json](unit-http.json) file.
+Now, you can access the Laravel project with domain [laravel.senku.stream](laravel.senku.stream). But, currently in HTTP protocol. We will turn it into HTTPS protocol in the next step.
 
-11. Create Let's Encrypt certificate.
+9. Each time you deploy using Deployer, Deployer will create a folder inside `releases` folder. For example: in initial deployment it create folder `1` in `releases` then it create symbolic link with `current` folder. If any git push happen then Deployer will create another folder called `2` in releases folder then move the symbolic link from folder `1` to `2` into the `current` folder. Because we use this approach then we need to tell Nginx Unit to reload the service that belongs to this app. In [deploy.php](deploy.php) file, we create task called `unit:reload`. This tell the Nginx Unit to reload the `applications/laravel` that we defined in [unit-http.json](unit-http.json) file.
+
+10. Create Let's Encrypt certificate.
 
 ```sh
 certbot certonly --webroot -w /var/www/html -d laravel.senku.stream --non-interactive --agree-tos -m halo@kresna.me
@@ -82,9 +84,15 @@ certbot certonly --webroot -w /var/www/html -d laravel.senku.stream --non-intera
 
 > Note: Replace the laravel.senku.stream with your actual domain.
 
-12. Create `unit-https.json` file in `/tmp`directory in the droplet. Then, use the content of [unit-https.json](unit-https.json) from this repository.
+11. Create a certificate bundle with name `bundle` into `/tmp` directory. 
 
-13. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
+```sh
+cat /etc/letsencrypt/live/laravel.senku.stream/fullchain.pem /etc/letsencrypt/live/laravel.senku.stream/privkey.pem > /tmp/bundle.pem
+```
+
+11. Create `unit-https.json` file in `/tmp`directory in the droplet. Then, use the content of [unit-https.json](unit-https.json) from this repository.
+
+12. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
 
 ```sh
 curl -X PUT --data-binary @/tmp/unit-https.json --unix-socket /var/run/control.unit.sock http://localhost/config/
