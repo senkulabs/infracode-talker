@@ -350,7 +350,7 @@ configure_nginx_unit() {
     log_step "Configuring Nginx Unit HTTP for Laravel..."
 
     # Create the Nginx Unit configuration file
-    sudo -u deployer cat > /home/deployer/unit-http.json << 'EOF'
+    cat > /home/deployer/unit-http.json << 'EOF'
 {
     "listeners": {
         "*:80": {
@@ -389,11 +389,12 @@ configure_nginx_unit() {
     }
 }
 EOF
+chown deployer:deployer /home/deployer/unit-http.json
 
 log_step "Configuring Nginx Unit HTTPS for Laravel..."
 
     # Create the Nginx Unit configuration file
-    sudo -u deployer cat > /home/deployer/unit-https.json << 'EOF'
+    cat > /home/deployer/unit-https.json << 'EOF'
 {
     "listeners": {
         "*:80": {
@@ -456,6 +457,7 @@ log_step "Configuring Nginx Unit HTTPS for Laravel..."
     }
 }
 EOF
+chown deployer:deployer /home/deployer/unit-https.json
 }
 
 # Step 13: Create SSH Key Pair
