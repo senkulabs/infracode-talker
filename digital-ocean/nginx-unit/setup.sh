@@ -305,7 +305,8 @@ configure_deployer_sudo() {
     # Create sudoers file for deployer user
     cat > /etc/sudoers.d/deployer << 'EOF'
 # Allow deployer user to run specific commands without password
-deployer ALL=(ALL) NOPASSWD: /usr/bin/curl -X GET /var/run/control.unit.sock*
+# Grant deployer user to access Control API Nginx Unit
+deployer ALL=(ALL) NOPASSWD: /usr/bin/curl -X * --unix-socket /var/run/control.unit.sock *
 EOF
 
     # Set proper permissions
@@ -321,7 +322,120 @@ EOF
     fi
 }
 
-# Step 12: Create SSH Key Pair
+# Step 12: Configure Nginx Unit Http
+configure_nginx_unit_http() {
+    log_step "Configuring Nginx Unit HTTP for Laravel..."
+
+    # Create the Nginx Unit configuration file
+    cat > /home/deployer/unit-http.json << 'EOF'
+{
+    "listeners": {
+        "*:80": {
+            "pass": "routes"
+        }
+    },
+    "routes": [
+        {
+            "match": {
+                "uri": "/.well-known/acme-challenge/*"
+            },
+            "action": {
+                "share": "/var/www/html/$uri"
+            }
+        },
+        {
+            "match": {
+                "uri": "!/index.php"
+            },
+            "action": {
+                "share": "/var/www/html/current/public$uri",
+                "fallback": {
+                    "pass": "applications/laravel"
+                }
+            }
+        }
+    ],
+    "applications": {
+        "laravel": {
+            "type": "php",
+            "root": "/var/www/html/current/public/",
+            "script": "index.php",
+            "user": "deployer",
+            "group": "deployer"
+        }
+    }
+}
+EOF
+
+log_step "Configuring Nginx Unit HTTPS for Laravel..."
+
+    # Create the Nginx Unit configuration file
+    cat > /home/deployer/unit-https.json << 'EOF'
+{
+    "listeners": {
+        "*:80": {
+            "pass": "routes/redirect"
+        },
+        "*:443": {
+            "pass": "routes/laravel",
+            "tls": {
+                "certificate": "bundle"
+            }
+        }
+    },
+    "routes": {
+        "redirect": [
+            {
+                "match": {
+                    "uri": "/.well-known/acme-challenge/*"
+                },
+                "action": {
+                    "share": "/var/www/html/$uri"
+                }
+            },
+            {
+                "action": {
+                    "return": 301,
+                    "location": "https://$host$request_uri"
+                }
+            }
+        ],
+        "laravel": [
+            {
+                "match": {
+                    "uri": "/.well-known/acme-challenge/*"
+                },
+                "action": {
+                    "share": "/var/www/html/public$uri"
+                }
+            },
+            {
+                "match": {
+                    "uri": "!/index.php"
+                },
+                "action": {
+                    "share": "/var/www/html/current/public$uri",
+                    "fallback": {
+                        "pass": "applications/laravel"
+                    }
+                }
+            }
+        ]
+    },
+    "applications": {
+        "laravel": {
+            "type": "php",
+            "root": "/var/www/html/current/public/",
+            "script": "index.php",
+            "user": "deployer",
+            "group": "deployer"
+        }
+    }
+}
+EOF
+}
+
+# Step 13: Create SSH Key Pair
 create_ssh_key_pair() {
     log_step "Creating SSH Key Pair for deployer user..."
     
@@ -360,6 +474,7 @@ show_summary() {
     echo -e "✅ ACL installed"
     echo -e "✅ Deployer user created"
     echo -e "✅ Deployer sudo access configured"
+    echo -e "✅ Configure Nginx Unit generated"
     echo -e "✅ SSH Key Pair generated"
     echo ""
     echo -e "${YELLOW}Important Notes:${NC}"
@@ -461,6 +576,7 @@ main() {
     install_acl
     create_deployer_user
     configure_deployer_sudo
+    configure_nginx_unit
     create_ssh_key_pair
 
     show_summary

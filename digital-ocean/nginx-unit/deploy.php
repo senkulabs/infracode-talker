@@ -30,8 +30,20 @@ task('deploy:secrets', function () {
 });
 
 // Create a .well-known/acme-challenge for let's encrypt SSL certificate verification
-task('deployer:acme-challenge', function () {
+task('deploy:acme-challenge', function () {
     return run('mkdir -p /var/www/html/.well-known/acme-challenge');
+});
+
+task('unit:apply-config', function () {
+    run('
+        status=$(curl --unix-socket /var/run/control.unit.sock -s -o /dev/null -w "%{http_code}" http://localhost/config/applications/laravel)
+        if [ "$status" != "200" ]; then
+            echo "Applying Unit configuration (Laravel app not found)..."
+            curl -X PUT --data-binary @/home/deployer/unit-http.json --unix-socket /var/run/control.unit.sock http://localhost/config/
+        else
+            echo "Laravel app already exists in Unit, skipping configuration"
+        fi
+    ');
 });
 
 task('unit:reload', function () {
@@ -44,6 +56,7 @@ task('deploy', [
     'deploy:prepare',
     'deploy:secrets', // Deploy secrets
     'deploy:vendors',
+    'deploy:acme-challenge',
     'artisan:storage:link', // |
     'artisan:view:cache',   // |
     'artisan:config:cache', // | Laravel specific steps
@@ -52,7 +65,7 @@ task('deploy', [
     // 'artisan:horizon:terminate',
     // 'artisan:horizon:publish',
     'deploy:publish',
-    'deployer:acme-challenge',
+    'unit:apply-config',
     'unit:reload',
 ]);
 
