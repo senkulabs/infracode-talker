@@ -161,7 +161,8 @@ EOF
 
     # Create systemd override to make socket permissions persistent
     log_info "Creating systemd override for persistent socket permissions..."
-    systemctl edit unit << 'EOF'
+    mkdir -p /etc/systemd/system/unit.service.d
+    cat > /etc/systemd/system/unit.service.d/override.conf << 'EOF'
 [Service]
 ExecStartPost=/bin/chgrp unit /var/run/control.unit.sock
 ExecStartPost=/bin/chmod 660 /var/run/control.unit.sock
