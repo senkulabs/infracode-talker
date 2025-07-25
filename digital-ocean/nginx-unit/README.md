@@ -9,6 +9,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 - Postgres
 - Redis
 
+> [!WARNING]
 > You must run these steps as a root user or user with sudo access.
 
 1. Create [a droplet in Digital Ocean](https://m.do.co/c/303e46500afd) with latest Ubuntu LTS. You may choose droplet with $6 or $12.
@@ -24,7 +25,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 
 | Type | Name                    | Content             | Proxy Status | TTL      |
 |:-----|:------------------------|:--------------------|:-------------|:---------|
-| A    | laravel.senku.stream    | droplet-ip-public   | DNS only     | &nbsp    |
+| A    | laravel.senku.stream    | droplet-ip-public   | DNS only     | &nbsp;   |
 
 3. Put `setup.sh` file into root directory in the droplet and make it executable. This executable file do:
 
