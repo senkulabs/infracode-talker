@@ -307,6 +307,8 @@ configure_deployer_sudo() {
 # Allow deployer user to run specific commands without password
 # Grant deployer user to access Control API Nginx Unit
 deployer ALL=(ALL) NOPASSWD: /usr/bin/curl -X * --unix-socket /var/run/control.unit.sock *
+# Grant deployer user to access certbot command
+deployer ALL=(ALL) NOPASSWD: /usr/bin/certbot renew, /usr/bin/certbot certonly
 EOF
 
     # Set proper permissions
