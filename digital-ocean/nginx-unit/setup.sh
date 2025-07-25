@@ -158,6 +158,26 @@ EOF
         systemctl status unit
         exit 1
     fi
+
+    # Create systemd override to make socket permissions persistent
+    log_info "Creating systemd override for persistent socket permissions..."
+    systemctl edit unit << 'EOF'
+[Service]
+ExecStartPost=/bin/chgrp unit /var/run/control.unit.sock
+ExecStartPost=/bin/chmod 660 /var/run/control.unit.sock
+EOF
+    
+    # Reload systemd and restart unit to apply the override
+    systemctl daemon-reload
+    systemctl restart unit
+    
+    # Verify socket permissions
+    if [[ -S /var/run/control.unit.sock ]]; then
+        local perms=$(stat -c "%a %U:%G" /var/run/control.unit.sock)
+        log_info "Socket permissions set: $perms"
+    else
+        log_warn "Socket file not found after restart"
+    fi
 }
 
 # Step 3: Install Composer
@@ -285,17 +305,17 @@ install_acl() {
 
 # Step 10: Create deployer user + give access to deployer user
 create_deployer_user() {
-    log_step "Create deployer user..."
-
-    adduser --disabled-password --gecos "" deployer
-
-    log_info "Give deployer user access to /var/www directory..."
-    setfacl -R -m u:deployer:rwx /var/www
-
-    log_info "Add deployer user to unit (nginx unit) group..."
-    usermod -a -G unit deployer
-
-    log_info "Deployer user created successfully"
+    if id "deployer" &>/dev/null; then
+        log_warn "User 'deployer' exists"
+    else
+        log_step "Create deployer user..."
+        adduser --disabled-password --gecos "" deployer
+        log_info "Give deployer user access to /var/www directory..."
+        setfacl -R -m u:deployer:rwx /var/www
+        log_info "Add deployer user to unit (nginx unit) group..."
+        usermod -a -G unit deployer
+        log_info "Deployer user created successfully"
+    fi
 }
 
 # Step 11: Configure sudo access for deployer user
@@ -324,8 +344,8 @@ EOF
     fi
 }
 
-# Step 12: Configure Nginx Unit Http
-configure_nginx_unit_http() {
+# Step 12: Configure Nginx Unit
+configure_nginx_unit() {
     log_step "Configuring Nginx Unit HTTP for Laravel..."
 
     # Create the Nginx Unit configuration file

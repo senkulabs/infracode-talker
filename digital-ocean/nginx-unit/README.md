@@ -51,7 +51,7 @@ sudo ./setup.sh
 After `setup.sh` execute then it will generate `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS`. These are used for GitLab CI/CD. Store it into GitLab CI/CD variables.
 
 > [!WARNING]
-> You may modify the value of `SSH_KNOWN_HOSTS` from public IP address into domain. Otherwise, the deployment process will be error.
+> You may modify the value of `SSH_KNOWN_HOSTS` from public IP address into domain. Otherwise, the deployment process will give error message: `Host key verification failed`.
 
 4. Prepare a Laravel project. Then, install the [deployer](https://deployer.org) tool and create initial `deploy.php` file.
 
