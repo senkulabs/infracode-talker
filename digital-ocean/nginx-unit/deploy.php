@@ -36,7 +36,7 @@ task('deploy:acme-challenge', function () {
 
 task('unit:apply-config', function () {
     run('
-        status=$(curl --unix-socket /var/run/control.unit.sock -s -o /dev/null -w "%{http_code}" http://localhost/config/applications/laravel)
+        status=$(/usr/bin/curl -X GET --unix-socket /var/run/control.unit.sock -s -o /dev/null -w "%{http_code}" http://localhost/config/applications/laravel)
         if [ "$status" != "200" ]; then
             echo "Applying Unit configuration (Laravel app not found)..."
             curl -X PUT --data-binary @/home/deployer/unit-http.json --unix-socket /var/run/control.unit.sock http://localhost/config/

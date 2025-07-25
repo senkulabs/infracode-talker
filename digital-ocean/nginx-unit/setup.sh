@@ -349,7 +349,7 @@ configure_nginx_unit() {
     log_step "Configuring Nginx Unit HTTP for Laravel..."
 
     # Create the Nginx Unit configuration file
-    cat > /home/deployer/unit-http.json << 'EOF'
+    sudo -u deployer cat > /home/deployer/unit-http.json << 'EOF'
 {
     "listeners": {
         "*:80": {
@@ -392,7 +392,7 @@ EOF
 log_step "Configuring Nginx Unit HTTPS for Laravel..."
 
     # Create the Nginx Unit configuration file
-    cat > /home/deployer/unit-https.json << 'EOF'
+    sudo -u deployer cat > /home/deployer/unit-https.json << 'EOF'
 {
     "listeners": {
         "*:80": {
