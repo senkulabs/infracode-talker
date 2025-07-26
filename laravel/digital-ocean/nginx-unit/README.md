@@ -7,7 +7,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 - PHP
 - Nginx Unit (php-fpm is not necessary)
 - Postgres
-- Redis
+- Redis (optional)
 
 > [!WARNING]
 > You must run these steps as a root user or user with sudo access.
@@ -45,8 +45,11 @@ This is a brief instruction how to setup web server for Laravel framework using:
 
 ```sh
 chmod +x setup.sh
-sudo ./setup.sh
+./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword
 ```
+
+> [!TIP]
+> If you want to install redis, it will be like this: `./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword --with-redis`.
 
 After `setup.sh` execute then it will generate `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS`. These are used for GitLab CI/CD. Store it into GitLab CI/CD variables.
 
@@ -72,12 +75,16 @@ If you're using Windows (not WSL) + Laragon, then use this command to create ini
 
 Each time you deploy using Deployer, Deployer will create a folder inside `releases` folder. For example: in initial deployment it create folder `1` in `releases` then it create symbolic link with `current` folder. If any git push happen then Deployer will create another folder called `2` in releases folder then move the symbolic link from folder `1` to `2` into the `current` folder. Because we use this approach then we need to tell Nginx Unit to reload the service that belongs to this app. In [deploy.php](deploy.php) file, we create task called `unit:reload`. This tell the Nginx Unit to reload the `applications/laravel` that we defined in [setup.sh](setup.sh) file.
 
-Now, you can access the Laravel project with domain [laravel.senku.stream](laravel.senku.stream). But, currently in HTTP protocol. We will turn it into HTTPS protocol in the next step.
+Now, you can access the Laravel project with domain [laravel.senku.stream](http://laravel.senku.stream). But, currently in HTTP protocol. We will turn it into HTTPS protocol in the next step.
 
 7. Create Let's Encrypt certificate as a deployer user.
 
 ```sh
-certbot certonly --webroot -w /var/www/html -d laravel.senku.stream --non-interactive --agree-tos -m halo@kresna.me
+certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
+  --config-dir ~/certbot/config \
+  --work-dir ~/certbot/work \
+  --logs-dir ~/certbot/logs \
+  --non-interactive --agree-tos -m your-email@mail.com
 ```
 
 > [!TIP] 
@@ -86,10 +93,18 @@ certbot certonly --webroot -w /var/www/html -d laravel.senku.stream --non-intera
 8. Create a certificate bundle with name `bundle` into `/home/deployer` directory. 
 
 ```sh
-cat /etc/letsencrypt/live/laravel.senku.stream/fullchain.pem /etc/letsencrypt/live/laravel.senku.stream/privkey.pem > /home/deployer/bundle.pem
+cat /home/deployer/certbot/config/live/laravel.senku.stream/fullchain.pem /home/deployer/certbot/config/live/laravel.senku.stream/privkey.pem > /home/deployer/bundle.pem
 ```
 
-9. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
+9. Inject the bundle into Nginx Unit.
+
+```sh
+curl -X PUT --data-binary @bundle.pem \
+    --unix-socket /var/run/control.unit.sock \
+    http://localhost/certificates/bundle
+```
+
+10. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
 
 ```sh
 curl -X PUT --data-binary @unit-https.json --unix-socket /var/run/control.unit.sock http://localhost/config/
