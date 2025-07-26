@@ -2,6 +2,8 @@
 
 Infrastructure as Code Talker.
 
-A personal note to setup software deployment inside VMs for deploy web app. It covers:
+A personal cookbook to setup deployment for deploy web app.
 
-- [Nginx Unit - Digital Ocean (Non-container)](/digital-ocean/nginx-unit/README.md)
+Currently, it covers:
+
+- [Laravel + Deployer + Nginx Unit in single VPS](/digital-ocean/nginx-unit/README.md)
