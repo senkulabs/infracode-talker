@@ -79,6 +79,10 @@ Now, you can access the Laravel project with domain [laravel.senku.stream](http:
 
 7. Create Let's Encrypt certificate as a deployer user.
 
+> [!IMPORTANT] 
+> Replace the `laravel.senku.stream` with your actual domain.
+> Replace the `your-email@mail.com` with your actual email.
+
 ```sh
 certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
   --config-dir ~/certbot/config \
@@ -87,10 +91,11 @@ certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
   --non-interactive --agree-tos -m your-email@mail.com
 ```
 
-> [!TIP] 
-> Replace the laravel.senku.stream with your actual domain.
+8. Create a certificate bundle with name `bundle` into `/home/deployer` directory.
 
-8. Create a certificate bundle with name `bundle` into `/home/deployer` directory. 
+> [!IMPORTANT] 
+> Replace the `laravel.senku.stream` with your actual domain.
+> Replace the `your-email@mail.com` with your actual email.
 
 ```sh
 cat /home/deployer/certbot/config/live/laravel.senku.stream/fullchain.pem /home/deployer/certbot/config/live/laravel.senku.stream/privkey.pem > /home/deployer/bundle.pem
