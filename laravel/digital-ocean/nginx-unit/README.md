@@ -71,6 +71,9 @@ If you're using Windows (not WSL) + Laragon, then use this command to create ini
 
 5. Replace the content of initial `deploy.php` with the specific Laravel deployment setup [deploy.php](deploy.php) in this repository.
 
+> [!IMPORTANT] 
+> Replace the `laravel.senku.stream` with your actual hostname.
+
 6. Create `.gitlab-ci.yml` file and use the content of [.gitlab-ci.yml](.gitlab-ci.yml.txt) in this repository. Then hit deploy!
 
 Each time you deploy using Deployer, Deployer will create a folder inside `releases` folder. For example: in initial deployment it create folder `1` in `releases` then it create symbolic link with `current` folder. If any git push happen then Deployer will create another folder called `2` in releases folder then move the symbolic link from folder `1` to `2` into the `current` folder. Because we use this approach then we need to tell Nginx Unit to reload the service that belongs to this app. In [deploy.php](deploy.php) file, we create task called `unit:reload`. This tell the Nginx Unit to reload the `applications/laravel` that we defined in [setup.sh](setup.sh) file.
@@ -80,8 +83,7 @@ Now, you can access the Laravel project with domain [laravel.senku.stream](http:
 7. Create Let's Encrypt certificate as a deployer user.
 
 > [!IMPORTANT] 
-> Replace the `laravel.senku.stream` with your actual domain.
-> Replace the `your-email@mail.com` with your actual email.
+> Replace the `laravel.senku.stream` with your actual domain and the `your-email@mail.com` with your actual email.
 
 ```sh
 certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
@@ -95,7 +97,6 @@ certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
 
 > [!IMPORTANT] 
 > Replace the `laravel.senku.stream` with your actual domain.
-> Replace the `your-email@mail.com` with your actual email.
 
 ```sh
 cat /home/deployer/certbot/config/live/laravel.senku.stream/fullchain.pem /home/deployer/certbot/config/live/laravel.senku.stream/privkey.pem > /home/deployer/bundle.pem
