@@ -1,0 +1,114 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: laravel-webapp
+  annotations:
+    run.googleapis.com/minScale: '1'
+spec:
+  template:
+    metadata:
+      name: laravel-webapp-$CI_COMMIT_SHORT_SHA
+      annotations:
+        run.googleapis.com/cpu-throttling: "false"  # Keep CPU active when idle
+        run.googleapis.com/execution-environment: "gen2"
+        # run.googleapis.com/cloudsql-instances: $CLOUDSQL_INSTANCES
+        run.googleapis.com/network-interfaces: '[{"network": "default", "subnetwork": "default"}]'
+        run.googleapis.com/vpc-access-egress: 'private-ranges-only'
+    spec:
+      serviceAccountName: $SERVICE_ACCOUNT
+      containers:
+      - name: laravel-webapp
+        image: $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+        # We may use livenessProbe or startupProbe
+        livenessProbe:
+          timeoutSeconds: 1
+          periodSeconds: 10
+          failureThreshold: 3
+          httpGet:
+            # The path /healthcheck come from serversideup/php:8.3-fpm-nginx-alpine
+            path: /healthcheck
+            port: 8080
+        startupProbe:
+          timeoutSeconds: 10
+          periodSeconds: 60
+          failureThreshold: 3
+          tcpSocket:
+            port: 8080
+        env:
+        - name: APP_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_app_key
+        - name: APP_ENV
+          value: production
+        - name: APP_DEBUG
+          value: "false"
+        - name: APP_NAME
+          value: Laravel
+        - name: LOG_STACK
+          value: "stderr,syslog"
+        - name: LOG_STDERR_FORMATTER
+          value: "Monolog\\Formatter\\GoogleCloudLoggingFormatter"
+        - name: LOG_SYSLOG_FORMATTER
+          value: "Monolog\\Formatter\\GoogleCloudLoggingFormatter"
+        - name: FILESYSTEM_DRIVER
+          value: 'gcs'
+        - name: DB_CONNECTION
+          value: mariadb
+        # - name: DB_SOCKET
+        #   value: /cloudsql/<project-id>:asia-southeast2:db-1
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_db_host
+        - name: DB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_db_database
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_db_username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_db_password
+        - name: GOOGLE_CLOUD_KEY_FILE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: gcs_key
+        - name: GOOGLE_CLOUD_PROJECT_ID
+          value: <project-id>
+        - name: GOOGLE_CLOUD_STORAGE_BUCKET
+          value: <bucket-name>
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_redis_host
+        - name: REDIS_PORT
+          value: '6379'
+        - name: REDIS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_redis_username
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: laravel_redis_password
+        - name: CACHE_STORE
+          value: redis
+        - name: QUEUE_CONNECTION
+          value: redis
+        - name: SESSION_DRIVER
+          value: redis
+        - name: SESSION_STORE
+          value: redis

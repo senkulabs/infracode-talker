@@ -1,0 +1,102 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: laravel-scheduler
+  namespace: $PROJECT_ID
+  labels:
+    cloud.googleapis.com/location: $REGION
+spec:
+  template:
+    metadata:
+      name: laravel-scheduler-$CI_COMMIT_SHORT_SHA
+      annotations:
+        # run.googleapis.com/cloudsql-instances: $CLOUDSQL_INSTANCES
+        run.googleapis.com/network-interfaces: '[{"network": "default", "subnetwork": "default"}]'
+        run.googleapis.com/vpc-access-egress: 'private-ranges-only'
+    spec:
+      template:
+        spec:
+          maxRetries: 3
+          timeoutSeconds: 7200 # 2 hours
+          serviceAccountName: $SERVICE_ACCOUNT
+          containers:
+          - name: laravel-scheduler
+            image: $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+            command:
+            - php
+            args:
+            - /var/www/html/artisan
+            - schedule:run
+            - -vvv
+            env:
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_app_key
+            - name: APP_ENV
+              value: production
+            - name: APP_DEBUG
+              value: "false"
+            - name: APP_NAME
+              value: laravel
+            - name: LOG_STACK
+              value: "syslog"
+            - name: LOG_SYSLOG_FORMATTER
+              value: "Monolog\\Formatter\\GoogleCloudLoggingFormatter"
+            - name: FILESYSTEM_DRIVER
+              value: 'gcs'
+            - name: DB_CONNECTION
+              value: mariadb
+            # - name: DB_SOCKET
+            #   value: /cloudsql/<project-id>:asia-southeast2:laravel-db
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_db_host
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_db_database
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_db_username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_db_password
+            - name: GOOGLE_CLOUD_KEY_FILE
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: gcs_key
+            - name: GOOGLE_CLOUD_PROJECT_ID
+              value: <project-id>
+            - name: GOOGLE_CLOUD_STORAGE_BUCKET
+              value: <bucket-name>
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_redis_host
+            - name: REDIS_PORT
+              value: '6379'
+            - name: REDIS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_redis_username
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: laravel_redis_password
+            - name: CACHE_STORE
+              value: redis
+            - name: QUEUE_CONNECTION
+              value: redis

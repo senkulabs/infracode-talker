@@ -1,0 +1,130 @@
+# Add a `.` in front of a job to make it hidden.
+# Add a `&reference` to make it a reusable template.
+# Note that we don't have dashes anymore.
+.init_ssh: &init_ssh |
+  eval $(ssh-agent -s)
+  echo "$SSH_PRIVATE_KEY_DEV" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh
+  chmod 700 ~/.ssh
+  echo "$SSH_KNOWN_HOSTS_DEV" >> ~/.ssh/known_hosts
+  chmod 644 ~/.ssh/known_hosts
+
+variables:
+  REGION: asia-southeast2
+  PROJECT_ID: <project-id>
+  REPOSITORY: <google-artifact-registry-repo-name>
+  IMAGE_NAME: webapp
+  CLOUDSQL_INSTANCES: <project-id>:asia-southeast2:db-1
+  SERVICE_ACCOUNT: deployer-cloudrun@<project-id>.iam.gserviceaccount.com
+
+default:
+  tags:
+    - shell-gcp-01
+  before_script:
+    # Google Cloud Authentication
+    - echo "$GSA_KEY" > gsa.json
+    - gcloud auth activate-service-account --key-file=gsa.json
+    - gcloud config set project $PROJECT_ID
+    # Configure Docker to use gcloud as a credential helper
+    - gcloud auth configure-docker $REGION-docker.pkg.dev
+    # Create repository if it doesn't exist
+    - |
+      if ! gcloud artifacts repositories describe $REPOSITORY \
+        --location=$REGION \
+        --project=$PROJECT_ID > /dev/null 2>&1; then
+        gcloud artifacts repositories create $REPOSITORY \
+          --repository-format=docker \
+          --location=$REGION \
+          --project=$PROJECT_ID
+      fi
+
+docker-image:
+  stage: build
+  script:
+    # Build the Docker image (Production)
+    - docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA  .
+    - docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest .
+    
+    # Push the Docker image to Artifact Registry (Production)
+    - docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA 
+    - docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
+  only:
+    - main
+
+npm:
+  stage: build
+  image: docker.io/library/node:22.18.0-alpine3.22
+  tags:
+    - docker
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-npm
+    paths:
+      - node_modules/
+  before_script: [] # Overrides the default before_script
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - node_modules/
+      - public/build/
+  only:
+    - main
+
+run-webapp:
+  stage: deploy
+  script:
+    - envsubst < webapp.yaml > webapp-filled.yaml
+    - gcloud run services replace webapp-filled.yaml --region=$REGION --project=$PROJECT_ID
+    - gcloud run services update-traffic laravel-webapp --region=$REGION --to-latest
+    # Set IAM policy to allow unauthenticated access
+    - gcloud run services add-iam-policy-binding laravel-webapp --member="allUsers" --role="roles/run.invoker" --region=$REGION
+  when: manual
+  only:
+    - main
+
+run-scheduler:
+  stage: deploy
+  script:
+    - envsubst < scheduler.yaml > scheduler-filled.yaml
+    - gcloud run jobs replace scheduler-filled.yaml --region=$REGION --project=$PROJECT_ID
+    # Trigger every minute
+    - |
+      if gcloud scheduler jobs describe laravel-scheduler-trigger --location=$REGION >/dev/null 2>&1; then
+        echo "Update existing Cloud Scheduler job..."
+        gcloud scheduler jobs update http laravel-scheduler-trigger \
+          --location=$REGION \
+          --schedule="* * * * *" \
+          --time-zone="Asia/Singapore" \
+          --uri="https://$REGION-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/laravel-scheduler:run" \
+          --http-method=POST \
+          --oauth-service-account-email=$SERVICE_ACCOUNT
+      else
+        echo "Creating new Cloud Scheduler job..."
+        gcloud scheduler jobs create http laravel-scheduler-trigger \
+          --location=$REGION \
+          --schedule="* * * * *" \
+          --time-zone="Asia/Singapore" \
+          --uri="https://$REGION-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/laravel-scheduler:run" \
+          --http-method=POST \
+          --oauth-service-account-email=$SERVICE_ACCOUNT
+      fi
+  when: manual
+  only:
+    - main
+
+deploy-dev:
+  stage: deploy
+  image:
+    name: docker.io/deployphp/deployer:v7
+    entrypoint: [""]
+  tags:
+    - docker
+  before_script: [] # Overrides the default before_script
+  script:
+    - *init_ssh
+    - dep --file=deploy.php deploy web.domain.tld --verbose --revision="${CI_COMMIT_SHA}"
+  resource_group: production
+  only:
+    - main
