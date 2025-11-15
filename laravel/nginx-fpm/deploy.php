@@ -7,8 +7,8 @@ require 'recipe/laravel.php';
 // Config
 set('application', 'laravel.senku.stream');
 set('keep_releases', 5); // Keep 5 releases
-set('http_user', 'unit');
-set('http_group', 'unit');
+set('http_user', 'deployer');
+set('http_group', 'deployer');
 
 /**
  * NOTE:
