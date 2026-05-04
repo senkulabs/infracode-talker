@@ -7,8 +7,6 @@ require 'recipe/laravel.php';
 // Config
 set('application', 'laravel.senku.stream');
 set('keep_releases', 5); // Keep 5 releases
-set('http_user', 'deployer');
-set('http_group', 'deployer');
 
 /**
  * NOTE:
@@ -19,7 +17,7 @@ set('rsync_src', __DIR__);
 
 // Hosts
 host('laravel.senku.stream') // Name of the server
-    ->set('hostname', 'laravel.senku.stream') // Hostname or IP address
+    ->set('hostname', 'laravel.senku.stream')
     ->set('remote_user', 'deployer') // SSH user
     ->set('deploy_path', '/var/www/html'); // Deploy path
 

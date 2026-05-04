@@ -1,11 +1,11 @@
-# Deploy Laravel with Nginx Unit
+# Deploy Laravel with Nginx FPM
 
 ## Initial Deployment - Non Container
 
 This is a brief instruction how to setup web server for Laravel framework using:
 
-- PHP
-- Nginx Unit (php-fpm is not necessary)
+- PHP (include php-fpm)
+- Nginx
 - Postgres
 - Redis (optional)
 
@@ -30,7 +30,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 3. Put `setup.sh` file into root directory in the droplet and make it executable. This executable file do:
 
 - Install PHP and PHP extensions
-- Install Nginx unit
+- Install Nginx
 - Install Composer
 - Create `/var/www` directory
 - Install PostgreSQL
@@ -49,12 +49,12 @@ chmod +x setup.sh
 ```
 
 > [!TIP]
-> If you want to install redis, it will be like this: `./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword --with-redis`.
+> If you want to install redis and/or mariadb, it will be like this: `./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword --with-redis --db-engine=mariadb`.
 
-After `setup.sh` execute then it will generate `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS`. These are used for GitLab CI/CD. Store it into GitLab CI/CD variables.
+After `setup.sh` executed, it will generate `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS` from `deployer` user. These are used for GitLab CI/CD. Store it into GitLab CI/CD variables. So, save it!
 
-> [!WARNING]
-> You may modify the value of `SSH_KNOWN_HOSTS` from public IP address into domain. Otherwise, the deployment process will give error message: `Host key verification failed`.
+> [!IMPORTANT] 
+> Replace the **public IP address** value in `SSH_KNOWN_HOSTS` with your actual hostname. This will make the deployment smoother by just looking the actual hostname/domain. You must mapped the **public IP address** into DNS record first. Otherwise, you will get error message in CI/CD: `Host key verification failed` in the future.
 
 4. Prepare a Laravel project. Then, install the [deployer](https://deployer.org) tool and create initial `deploy.php` file.
 
@@ -75,45 +75,3 @@ If you're using Windows (not WSL) + Laragon, then use this command to create ini
 > Replace the `laravel.senku.stream` with your actual hostname.
 
 6. Create `.gitlab-ci.yml` file and use the content of [.gitlab-ci.yml](.gitlab-ci.yml.txt) in this repository. Then hit deploy!
-
-Each time you deploy using Deployer, Deployer will create a folder inside `releases` folder. For example: in initial deployment it create folder `1` in `releases` then it create symbolic link with `current` folder. If any git push happen then Deployer will create another folder called `2` in releases folder then move the symbolic link from folder `1` to `2` into the `current` folder. Because we use this approach then we need to tell Nginx Unit to reload the service that belongs to this app. In [deploy.php](deploy.php) file, we create task called `unit:reload`. This tell the Nginx Unit to reload the `applications/laravel` that we defined in [setup.sh](setup.sh) file.
-
-Now, you can access the Laravel project with domain [laravel.senku.stream](http://laravel.senku.stream). But, currently in HTTP protocol. We will turn it into HTTPS protocol in the next step.
-
-7. Create Let's Encrypt certificate as a deployer user.
-
-> [!IMPORTANT] 
-> Replace the `laravel.senku.stream` with your actual domain and the `your-email@mail.com` with your actual email.
-
-```sh
-certbot certonly --webroot -w /var/www/html -d laravel.senku.stream \
-  --config-dir ~/certbot/config \
-  --work-dir ~/certbot/work \
-  --logs-dir ~/certbot/logs \
-  --non-interactive --agree-tos -m your-email@mail.com
-```
-
-8. Create a certificate bundle with name `bundle` into `/home/deployer` directory.
-
-> [!IMPORTANT] 
-> Replace the `laravel.senku.stream` with your actual domain.
-
-```sh
-cat /home/deployer/certbot/config/live/laravel.senku.stream/fullchain.pem /home/deployer/certbot/config/live/laravel.senku.stream/privkey.pem > /home/deployer/bundle.pem
-```
-
-9. Inject the bundle into Nginx Unit.
-
-```sh
-curl -X PUT --data-binary @bundle.pem \
-    --unix-socket /var/run/control.unit.sock \
-    http://localhost/certificates/bundle
-```
-
-10. Update Nginx unit configuration with command below and you will see the response `Reconfiguration done.` if everything is success.
-
-```sh
-curl -X PUT --data-binary @unit-https.json --unix-socket /var/run/control.unit.sock http://localhost/config/
-```
-
-Now, everytime you access the `laravel.senku.stream`, it will redirect to HTTPS.

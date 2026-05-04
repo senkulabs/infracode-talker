@@ -1,5 +1,40 @@
 stages:
+  - build
   - deploy
+
+composer:
+  stage: build
+  image: ghcr.io/senkulabs/php:8.3-cli
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-composer
+    paths:
+      - vendor/
+  script:
+    - composer install --verbose --prefer-dist --no-progress --no-interaction --no-dev --optimize-autoloader
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - vendor/
+  only:
+    - main
+
+bun:
+  stage: build
+  image: docker.io/oven/bun:latest
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-bun
+    paths:
+      - node_modules/
+  script:
+    - bun install
+    - bun run build
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - node_modules/
+      - public/build/
+  only:
+    - main
 
 deploy:
   stage: deploy

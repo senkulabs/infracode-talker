@@ -14,6 +14,7 @@ NC='\033[0m' # No Color
 
 # Default values
 INSTALL_REDIS=false
+DB_ENGINE="postgresql"
 DB_NAME=""
 DB_USER=""
 DB_PASS=""
@@ -48,11 +49,13 @@ REQUIRED ARGUMENTS:
     --db-pass=PASSWORD      Database password
 
 OPTIONS:
+    --db-engine=ENGINE      Database engine: postgresql (default) or mariadb
     --with-redis            Install Redis server
     --help                  Show this help message
 
 EXAMPLES:
     $0 --db-name=myapp --db-user=myuser --db-pass=mypass
+    $0 --db-name=myapp --db-user=myuser --db-pass=mypass --db-engine=mariadb
     $0 --db-name=myapp --db-user=myuser --db-pass=mypass --with-redis
 
 EOF
@@ -64,6 +67,10 @@ parse_arguments() {
         case $1 in
             --with-redis)
                 INSTALL_REDIS=true
+                shift
+                ;;
+            --db-engine=*)
+                DB_ENGINE="${1#*=}"
                 shift
                 ;;
             --db-name=*)
@@ -112,6 +119,13 @@ validate_arguments() {
         show_help
         exit 1
     fi
+
+    if [[ "$DB_ENGINE" != "postgresql" && "$DB_ENGINE" != "mariadb" ]]; then
+        log_error "Invalid --db-engine value: '$DB_ENGINE'. Must be 'postgresql' or 'mariadb'."
+        echo ""
+        show_help
+        exit 1
+    fi
 }
 
 check_root() {
@@ -119,6 +133,14 @@ check_root() {
         log_error "This script must be run as root"
         exit 1
     fi
+}
+
+# Step 0: Configure UFW
+configure_ufw() {
+    log_step "Configuring UFW firewall..."
+    ufw allow OpenSSH
+    ufw --force enable
+    log_info "UFW enabled with OpenSSH allowed"
 }
 
 # Step 1: Install PHP and extensions for Laravel
@@ -132,10 +154,25 @@ install_php() {
 # Step 2: Install Nginx
 install_nginx() {
     log_info "Installing Nginx..."
-    
-    apt update && apt install nginx -y
-    
-    # Check status
+
+    apt update
+    # Install may fail post-install if IPv6 is disabled on the host
+    # (default site listens on [::]:80). Tolerate failure, patch, retry.
+    apt install -y nginx || log_warn "Nginx post-install failed; attempting IPv6 patch"
+
+    if ! ip -6 addr show scope global 2>/dev/null | grep -q inet6; then
+        log_warn "IPv6 not available on host; disabling IPv6 listen in default site"
+        if [[ -f /etc/nginx/sites-available/default ]]; then
+            sed -i 's|^\(\s*\)listen \[::\]:80|\1# listen [::]:80|' /etc/nginx/sites-available/default
+        fi
+    fi
+
+    # Finish any pending dpkg configuration (nginx post-install retry)
+    dpkg --configure -a
+
+    systemctl enable nginx
+    systemctl restart nginx
+
     if systemctl is-active --quiet nginx; then
         log_info "Nginx installed and running successfully"
     else
@@ -143,6 +180,9 @@ install_nginx() {
         systemctl status nginx
         exit 1
     fi
+
+    ufw allow 'Nginx HTTP'
+    log_info "UFW: Nginx HTTP allowed"
 }
 
 # Step 3: Install Composer
@@ -156,11 +196,11 @@ install_composer() {
 install_postgresql() {
     log_info "Installing PostgreSQL..."
     apt install postgresql postgresql-contrib -y
-    
+
     # Start and enable PostgreSQL
     systemctl start postgresql
     systemctl enable postgresql
-    
+
     # Check if PostgreSQL is running
     if systemctl is-active --quiet postgresql; then
         log_info "PostgreSQL installed and running successfully"
@@ -206,16 +246,60 @@ EOF
     log_info "Password: ${DB_PASS}"
 }
 
+# Step 5 (alt): Install MariaDB
+install_mariadb() {
+    log_info "Installing MariaDB..."
+    apt install mariadb-server -y
+
+    # Start and enable MariaDB
+    systemctl start mariadb
+    systemctl enable mariadb
+
+    # Check if MariaDB is running
+    if systemctl is-active --quiet mariadb; then
+        log_info "MariaDB installed and running successfully"
+    else
+        log_error "MariaDB failed to start"
+        systemctl status mariadb
+        exit 1
+    fi
+}
+
+# Step 6 (alt): Configure MariaDB Database
+configure_mariadb_database() {
+    log_step "Configuring MariaDB database..."
+
+    # Root uses unix_socket auth by default on Ubuntu MariaDB
+    mariadb <<EOF
+-- Create your Laravel application database
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create a dedicated user for your Laravel app
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
+
+-- Grant privileges on the application database
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+
+-- Apply privilege changes
+FLUSH PRIVILEGES;
+EOF
+
+    log_info "MariaDB database configured successfully"
+    log_info "Database: ${DB_NAME}"
+    log_info "User: ${DB_USER}"
+    log_info "Password: ${DB_PASS}"
+}
+
 # Step 7: Install Redis (optional)
 install_redis() {
     if [[ "$INSTALL_REDIS" == true ]]; then
         log_step "Installing Redis..."
         apt install redis-server -y
-    
+
         # Start and enable Redis
         systemctl start redis-server
         systemctl enable redis-server
-    
+
         # Check if Redis is running
         if systemctl is-active --quiet redis-server; then
             log_info "Redis installed and running successfully"
@@ -235,9 +319,9 @@ install_redis() {
 # Step 8: Install Certbot
 install_certbot() {
     log_step "Installing Certbot..."
-    
-    apt install certbot python3-certbot-nginx
-    
+
+    apt install -y certbot python3-certbot-nginx
+
     log_info "Certbot installed successfully"
 }
 
@@ -266,7 +350,7 @@ create_deployer_user() {
 # Step 13: Create SSH Key Pair
 create_ssh_key_pair() {
     log_step "Creating SSH Key Pair for deployer user..."
-    
+
     # Run commands as deployer user without interactive shell
     sudo -u deployer mkdir -p /home/deployer/.ssh
     sudo -u deployer ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
@@ -288,16 +372,20 @@ show_summary() {
     echo -e "✅ Nginx installed and running"
     echo -e "✅ Composer installed"
     echo -e "✅ Web directory created: /var/www"
-    echo -e "✅ PostgreSQL installed and configured"
+    if [[ "$DB_ENGINE" == "mariadb" ]]; then
+        echo -e "✅ MariaDB installed and configured"
+    else
+        echo -e "✅ PostgreSQL installed and configured"
+    fi
     echo -e "✅ Database created: ${DB_NAME}"
     echo -e "✅ Database user created: ${DB_USER}"
-    
+
     if [[ "$INSTALL_REDIS" == true ]]; then
         echo -e "✅ Redis installed and running"
     else
         echo -e "⏭️  Redis skipped (use --with-redis to install)"
     fi
-    
+
     echo -e "✅ Certbot installed"
     echo -e "✅ ACL installed"
     echo -e "✅ Deployer user created"
@@ -305,8 +393,15 @@ show_summary() {
     echo ""
     echo -e "${YELLOW}Important Notes:${NC}"
     echo -e "• SSH public key location: /home/deployer/.ssh/id_ed25519.pub"
-    echo -e "• PostgreSQL connection details:"
-    echo -e "  - Host: localhost"
+    if [[ "$DB_ENGINE" == "mariadb" ]]; then
+        echo -e "• MariaDB connection details:"
+        echo -e "  - Host: localhost"
+        echo -e "  - Port: 3306"
+    else
+        echo -e "• PostgreSQL connection details:"
+        echo -e "  - Host: localhost"
+        echo -e "  - Port: 5432"
+    fi
     echo -e "  - Database: ${DB_NAME}"
     echo -e "  - Username: ${DB_USER}"
     echo -e "  - Password: ${DB_PASS}"
@@ -339,11 +434,11 @@ display_ssh_info() {
     echo -e "${YELLOW}Host Key Information:${NC}"
     echo -e "${GREEN}Add these to your known_hosts file or CI/CD system:${NC}"
     echo ""
-    
+
     # Get server information
     local hostname=$(hostname -f 2>/dev/null || hostname)
     local ip_address=$(hostname -I | awk '{print $1}')
-    
+
     # Scan for different key types
     for host in "localhost" "$hostname" "$ip_address"; do
         if [[ -n "$host" && "$host" != "localhost" ]] || [[ "$host" == "localhost" ]]; then
@@ -356,7 +451,7 @@ display_ssh_info() {
             echo ""
         fi
     done
-    
+
     echo -e "${BLUE}=================================${NC}"
     echo ""
 }
@@ -374,6 +469,7 @@ main() {
     # Display configuration
     echo ""
     echo -e "${BLUE}Configuration:${NC}"
+    echo -e "• Database Engine: ${DB_ENGINE}"
     echo -e "• Database Name: ${DB_NAME}"
     echo -e "• Database User: ${DB_USER}"
     echo -e "• Database Password: ${DB_PASS}"
@@ -387,15 +483,21 @@ main() {
         log_info "Installation cancelled."
         exit 0
     fi
-    
+
     check_root
-    
+
     # Basic installation steps
+    configure_ufw
     install_php
     install_nginx
     install_composer
-    install_postgresql
-    configure_postgresql_database
+    if [[ "$DB_ENGINE" == "mariadb" ]]; then
+        install_mariadb
+        configure_mariadb_database
+    else
+        install_postgresql
+        configure_postgresql_database
+    fi
     install_redis
     install_certbot
     install_acl
