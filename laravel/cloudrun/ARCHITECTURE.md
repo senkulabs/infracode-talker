@@ -1,16 +1,18 @@
 # Architecture
 
+## About
+
 This project (production mode) deploy on Google Cloud Run with container-based approach. The Cloud Run divided by two: Services (web app) and Job (scheduler / cron job). The container use [Server Side Up Docker Image](https://serversideup.net/open-source/docker-php/). Please see [the limitation](https://serversideup.net/open-source/docker-php/docs/guide/using-s6-overlay#this-disadvantage-of-s6-overlay).
 
 Meanwhile, for the development mode is deployed on regular VM without container approach to simplify the process.
 
-Why choose Cloud Run?
+## Why choose Cloud Run
 
 1. It’s isolated by Docker container
 2. Increase security
 3. Reduce Infra team work
 
-Challenges?
+## Challenges
 
 1. You need to familiar with Docker Engine (build Docker image, push Docker image, and create container from the Docker image).
 2. You need to familiar with Cloud Run deployment + put secret key on Secret Manager.
