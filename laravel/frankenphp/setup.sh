@@ -180,8 +180,8 @@ install_frankenphp() {
 # Step 2: Install Composer
 install_composer() {
     log_step "Installing Composer..."
-    curl -sLS https://getcomposer.org/installer | frankenphp php-cli -- --install-dir=/usr/bin/ --filename=composer
-    log_info "Composer installed successfully"
+    curl -sLS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/ --filename=composer
+    log_info "Composer installed successfully: $(composer --version 2>/dev/null | head -n1)"
 }
 
 # Step 3: Install PostgreSQL
