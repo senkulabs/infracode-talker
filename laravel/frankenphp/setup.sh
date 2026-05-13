@@ -373,7 +373,7 @@ create_site_caddyfile() {
 
     cat > /etc/frankenphp/Caddyfile.d/${HOSTNAME}.caddyfile <<EOF
 ${HOSTNAME} {
-    root * /var/www/${HOSTNAME}/public
+    root * /var/www/${HOSTNAME}/current/public
     encode zstd br gzip
     php_server
 }
