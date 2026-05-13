@@ -19,6 +19,7 @@ DB_ENGINE="postgresql"
 DB_NAME=""
 DB_USER=""
 DB_PASS=""
+REDIS_PASS=""
 HOSTNAME=""
 
 # Functions
@@ -54,6 +55,7 @@ REQUIRED ARGUMENTS:
 OPTIONS:
     --db-engine=ENGINE      Database engine: postgresql (default) or mariadb
     --with-redis            Install Redis server
+    --redis-pass=PASSWORD   Redis password (auto-generated if --with-redis but omitted)
     --skip-caddyfile        Skip creating the site Caddyfile
     --help                  Show this help message
 
@@ -72,6 +74,10 @@ parse_arguments() {
         case $1 in
             --with-redis)
                 INSTALL_REDIS=true
+                shift
+                ;;
+            --redis-pass=*)
+                REDIS_PASS="${1#*=}"
                 shift
                 ;;
             --skip-caddyfile)
@@ -303,13 +309,34 @@ install_redis() {
         apt install redis-server -y
         apt install -y php-zts-redis
 
-        systemctl start redis-server
+        # Auto-generate password if not supplied
+        if [[ -z "$REDIS_PASS" ]]; then
+            REDIS_PASS="$(openssl rand -base64 32 | tr -d '/+=' | cut -c1-32)"
+            log_info "Generated Redis password (no --redis-pass supplied)"
+        fi
+
+        # Set requirepass in /etc/redis/redis.conf (replace existing or append)
+        local redis_conf="/etc/redis/redis.conf"
+        if grep -qE '^[[:space:]]*requirepass[[:space:]]+' "$redis_conf"; then
+            sed -i "s|^[[:space:]]*requirepass[[:space:]]\+.*|requirepass ${REDIS_PASS}|" "$redis_conf"
+        elif grep -qE '^[[:space:]]*#[[:space:]]*requirepass[[:space:]]+' "$redis_conf"; then
+            sed -i "s|^[[:space:]]*#[[:space:]]*requirepass[[:space:]]\+.*|requirepass ${REDIS_PASS}|" "$redis_conf"
+        else
+            echo "requirepass ${REDIS_PASS}" >> "$redis_conf"
+        fi
+
         systemctl enable redis-server
+        systemctl restart redis-server
 
         if systemctl is-active --quiet redis-server; then
             log_info "Redis installed and running successfully"
             log_info "PHP extension installed: redis"
-            redis-cli ping > /dev/null && log_info "Redis is responding to ping"
+            if redis-cli -a "$REDIS_PASS" --no-auth-warning ping 2>/dev/null | grep -q PONG; then
+                log_info "Redis is responding to authenticated ping"
+            else
+                log_error "Redis auth ping failed"
+                exit 1
+            fi
         else
             log_error "Redis failed to start"
             systemctl status redis-server
@@ -344,17 +371,23 @@ install_supervisor() {
     fi
 }
 
-# Step 7: Create deployer user + give access /var/www to deployer user
+# Step 7: Create deployer user
 create_deployer_user() {
     if id "deployer" &>/dev/null; then
         log_warn "User 'deployer' exists"
     else
         log_step "Create deployer user..."
         adduser --disabled-password --gecos "" deployer
-        log_info "Give deployer user access to /var/www directory..."
-        setfacl -R -m u:deployer:rwx /var/www
         log_info "Deployer user created successfully"
     fi
+}
+
+# Step 7a: Grant access deployer and frankenphp users to /var/www
+grant_var_www_directory() {
+    log_step "Grant access /var/www directory for deployer and frankenphp users"
+    setfacl -R -m u:deployer:rwx -m d:u:deployer:rwx /var/www
+    setfacl -R -m u:frankenphp:rwX -m d:u:frankenphp:rwX /var/www
+    log_info "The access to /var/www directory has been granted."
 }
 
 # Step 7b: Grant deployer passwordless sudo for supervisorctl (needed in CI/CD deploys)
@@ -442,7 +475,7 @@ show_summary() {
     echo -e "✅ Database user created: ${DB_USER}"
 
     if [[ "$INSTALL_REDIS" == true ]]; then
-        echo -e "✅ Redis installed and running"
+        echo -e "✅ Redis installed and running (password protected)"
     else
         echo -e "⏭️  Redis skipped (use --with-redis to install)"
     fi
@@ -450,6 +483,7 @@ show_summary() {
     echo -e "✅ ACL installed"
     echo -e "✅ Supervisor installed and running"
     echo -e "✅ Deployer user created"
+    echo -e "✅ Access to /var/www directory for deployer and frankenphp users has granted"
     echo -e "✅ Deployer passwordless sudo for supervisorctl: /etc/sudoers.d/deployer"
     echo -e "✅ SSH Key Pair generated"
     if [[ "$SKIP_CADDYFILE" == true ]]; then
@@ -472,6 +506,12 @@ show_summary() {
     echo -e "  - Database: ${DB_NAME}"
     echo -e "  - Username: ${DB_USER}"
     echo -e "  - Password: ${DB_PASS}"
+    if [[ "$INSTALL_REDIS" == true ]]; then
+        echo -e "• Redis connection details:"
+        echo -e "  - Host: 127.0.0.1"
+        echo -e "  - Port: 6379"
+        echo -e "  - Password: ${REDIS_PASS}"
+    fi
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
     if [[ "$SKIP_CADDYFILE" == true ]]; then
@@ -542,6 +582,9 @@ main() {
     echo -e "• Database User: ${DB_USER}"
     echo -e "• Database Password: ${DB_PASS}"
     echo -e "• Install Redis: ${INSTALL_REDIS}"
+    if [[ "$INSTALL_REDIS" == true ]]; then
+        echo -e "• Redis Password: ${REDIS_PASS:-<auto-generated>}"
+    fi
     echo -e "• Skip Caddyfile: ${SKIP_CADDYFILE}"
     echo ""
 
@@ -569,6 +612,7 @@ main() {
     install_acl
     install_supervisor
     create_deployer_user
+    grant_var_www_directory
     configure_deployer_sudo
     create_ssh_key_pair
     create_www_dir
