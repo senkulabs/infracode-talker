@@ -329,11 +329,11 @@ create_ssh_key_pair() {
     log_info "SSH Key Pair created successfully"
 }
 
-# Step 9a: Create web root directory
-create_web_root() {
-    log_step "Creating web root directory for ${HOSTNAME}..."
-    mkdir -p /var/www/${HOSTNAME}/public
-    log_info "Web root created at /var/www/${HOSTNAME}/public"
+# Step 9a: Create www directory
+create_www_dir() {
+    log_step "Creating www directory"
+    mkdir -p /var/www
+    log_info "Www directory created"
 }
 
 # Step 9b: Create site Caddyfile (optional)
@@ -501,7 +501,7 @@ main() {
     install_acl
     create_deployer_user
     create_ssh_key_pair
-    create_web_root
+    create_www_dir
     create_site_caddyfile
 
     show_summary
