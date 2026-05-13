@@ -334,6 +334,24 @@ install_acl() {
     log_info "ACL installed successfully"
 }
 
+# Step 9b: Install Supervisor (process manager for Laravel queue workers / Horizon)
+install_supervisor() {
+    log_step "Installing Supervisor..."
+
+    apt install -y supervisor
+
+    systemctl enable supervisor
+    systemctl start supervisor
+
+    if systemctl is-active --quiet supervisor; then
+        log_info "Supervisor installed and running successfully"
+    else
+        log_error "Supervisor failed to start"
+        systemctl status supervisor
+        exit 1
+    fi
+}
+
 # Step 10: Create deployer user + give access /var/www to deployer user
 create_deployer_user() {
     if id "deployer" &>/dev/null; then
@@ -388,6 +406,7 @@ show_summary() {
 
     echo -e "✅ Certbot installed"
     echo -e "✅ ACL installed"
+    echo -e "✅ Supervisor installed and running"
     echo -e "✅ Deployer user created"
     echo -e "✅ SSH Key Pair generated"
     echo ""
@@ -501,6 +520,7 @@ main() {
     install_redis
     install_certbot
     install_acl
+    install_supervisor
     create_deployer_user
     create_ssh_key_pair
 
