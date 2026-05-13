@@ -177,23 +177,41 @@ install_frankenphp() {
     fi
 }
 
-# Step 2: Install Composer
+# Step 2: Install PHP extensions (ZTS build required by FrankenPHP)
+install_php_extensions() {
+    log_step "Installing PHP extensions (php-zts-*)..."
+    apt install -y \
+        php-zts-mbstring \
+        php-zts-bcmath \
+        php-zts-gd \
+        php-zts-intl \
+        php-zts-zip \
+        php-zts-curl \
+        php-zts-xml \
+        php-zts-sqlite3 \
+        php-zts-pdo
+    log_info "PHP extensions installed successfully"
+}
+
+# Step 3: Install Composer
 install_composer() {
     log_step "Installing Composer..."
     curl -sLS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/ --filename=composer
     log_info "Composer installed successfully"
 }
 
-# Step 3: Install PostgreSQL
+# Step 4: Install PostgreSQL
 install_postgresql() {
     log_info "Installing PostgreSQL..."
     apt install postgresql postgresql-contrib -y
+    apt install -y php-zts-pgsql php-zts-pdo-pgsql
 
     systemctl start postgresql
     systemctl enable postgresql
 
     if systemctl is-active --quiet postgresql; then
         log_info "PostgreSQL installed and running successfully"
+        log_info "PHP extensions installed: pgsql, pdo-pgsql"
         log_info "Default postgres user created. You can set password with: sudo -u postgres psql -c \"ALTER USER postgres PASSWORD 'your_password';\""
     else
         log_error "PostgreSQL failed to start"
@@ -239,12 +257,14 @@ EOF
 install_mariadb() {
     log_info "Installing MariaDB..."
     apt install mariadb-server -y
+    apt install -y php-zts-mysqli php-zts-pdo-mysql
 
     systemctl start mariadb
     systemctl enable mariadb
 
     if systemctl is-active --quiet mariadb; then
         log_info "MariaDB installed and running successfully"
+        log_info "PHP extensions installed: mysqli, pdo-mysql"
     else
         log_error "MariaDB failed to start"
         systemctl status mariadb
@@ -281,12 +301,14 @@ install_redis() {
     if [[ "$INSTALL_REDIS" == true ]]; then
         log_step "Installing Redis..."
         apt install redis-server -y
+        apt install -y php-zts-redis
 
         systemctl start redis-server
         systemctl enable redis-server
 
         if systemctl is-active --quiet redis-server; then
             log_info "Redis installed and running successfully"
+            log_info "PHP extension installed: redis"
             redis-cli ping > /dev/null && log_info "Redis is responding to ping"
         else
             log_error "Redis failed to start"
@@ -312,6 +334,8 @@ create_deployer_user() {
     else
         log_step "Create deployer user..."
         adduser --disabled-password --gecos "" deployer
+        log_info "Give deployer user access to /var/www directory..."
+        setfacl -R -m u:deployer:rwx /var/www
         log_info "Deployer user created successfully"
     fi
 }
@@ -333,7 +357,7 @@ create_ssh_key_pair() {
 create_www_dir() {
     log_step "Creating www directory"
     mkdir -p /var/www
-    log_info "Www directory created"
+    log_info "The www directory created"
 }
 
 # Step 9b: Create site Caddyfile (optional)
@@ -366,6 +390,7 @@ show_summary() {
     echo -e "=================================${NC}"
     echo ""
     echo -e "✅ FrankenPHP installed"
+    echo -e "✅ PHP extensions installed (mbstring, bcmath, gd, intl, zip, curl, xml)"
     echo -e "✅ Composer installed"
     echo -e "✅ Web directory created: /var/www/${HOSTNAME}/public"
     if [[ "$DB_ENGINE" == "mariadb" ]]; then
@@ -489,6 +514,7 @@ main() {
 
     configure_ufw
     install_frankenphp
+    install_php_extensions
     install_composer
     if [[ "$DB_ENGINE" == "mariadb" ]]; then
         install_mariadb
