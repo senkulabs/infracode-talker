@@ -5,7 +5,7 @@ require 'contrib/rsync.php';
 require 'recipe/laravel.php';
 
 // Config
-set('application', 'laravel.senku.stream');
+set('http_user', 'www-data');
 set('keep_releases', 5); // Keep 5 releases
 
 /**
