@@ -175,11 +175,10 @@ create_deployer_user() {
     else
         log_step "Creating deployer user..."
         adduser --disabled-password --gecos "" deployer
-        log_info "Give deployer user access to /var/www directory..."
-        setfacl -R -m u:deployer:rwx -m d:u:deployer:rwx /var/www
         log_info "Deployer user created"
     fi
 }
+
 
 configure_deployer_sudo() {
     log_step "Configuring passwordless sudo for deployer..."
@@ -219,7 +218,7 @@ create_ssh_key_pair() {
 }
 
 create_deploy_dir() {
-    local deploy_path="/var/www/${HOSTNAME}"
+    local deploy_path="/opt/${HOSTNAME}"
     log_step "Creating deploy directory at ${deploy_path}..."
     mkdir -p "${deploy_path}"
     setfacl -R -m u:deployer:rwx -m d:u:deployer:rwx "${deploy_path}"
@@ -241,7 +240,7 @@ enable_network_online_target() {
 }
 
 install_systemd_services() {
-    local deploy_path="/var/www/${HOSTNAME}"
+    local deploy_path="/opt/${HOSTNAME}"
     local service_file="/etc/systemd/system/${HOSTNAME}.service"
     log_step "Installing systemd service file at ${service_file}..."
 
@@ -284,7 +283,7 @@ EOF
 }
 
 show_summary() {
-    local deploy_path="/var/www/${HOSTNAME}"
+    local deploy_path="/opt/${HOSTNAME}"
     echo ""
     echo -e "${GREEN}================================="
     echo -e "    INSTALLATION SUMMARY"
@@ -374,7 +373,7 @@ main() {
     echo ""
     echo -e "${BLUE}Configuration:${NC}"
     echo -e "• Hostname: ${HOSTNAME}"
-    echo -e "• Deploy path: /var/www/${HOSTNAME}"
+    echo -e "• Deploy path: /opt/${HOSTNAME}"
     echo -e "• Install Chromium: ${INSTALL_CHROMIUM}"
     echo -e "• Install Redis (server): ${INSTALL_REDIS}"
     echo -e "• Install redis-cli only: ${INSTALL_REDIS_CLI}"
