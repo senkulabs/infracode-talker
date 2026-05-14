@@ -79,6 +79,12 @@ check_root() {
     fi
 }
 
+apt_update() {
+    log_step "Refreshing apt package index..."
+    apt update -y
+    log_info "apt index updated"
+}
+
 configure_ufw() {
     log_step "Configuring UFW firewall..."
     ufw allow OpenSSH
@@ -93,7 +99,6 @@ install_chromium() {
     fi
 
     log_step "Installing Chromium..."
-    apt update -y
     apt install -y chromium-browser 2>/dev/null || apt install -y chromium
 
     CHROMIUM_PATH=$(command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || echo "")
@@ -388,6 +393,7 @@ main() {
 
     check_root
 
+    apt_update
     configure_ufw
     install_chromium
     install_acl

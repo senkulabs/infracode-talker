@@ -141,6 +141,12 @@ check_root() {
     fi
 }
 
+apt_update() {
+    log_step "Refreshing apt package index..."
+    apt update -y
+    log_info "apt index updated"
+}
+
 # Step 0: Configure UFW
 configure_ufw() {
     log_step "Configuring UFW firewall..."
@@ -152,7 +158,6 @@ configure_ufw() {
 # Step 1: Install PHP and extensions for Laravel
 install_php() {
     log_info "Installing PHP and Laravel extensions..."
-    apt update
     apt install php-intl php-bcmath php-cli php-curl php-fpm php-gd php-mbstring php-mysql php-pgsql php-redis php-sqlite3 php-xml php-zip unzip -y
     log_info "PHP and extensions installed successfully"
 }
@@ -562,7 +567,7 @@ main() {
     fi
 
     check_root
-
+    apt_update
     # Basic installation steps
     configure_ufw
     install_php
