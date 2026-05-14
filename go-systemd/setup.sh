@@ -226,15 +226,37 @@ create_deploy_dir() {
     log_info "Deploy directory created"
 }
 
+enable_network_online_target() {
+    log_step "Ensuring network-online.target is satisfied at boot..."
+
+    if systemctl list-unit-files 2>/dev/null | grep -q '^systemd-networkd-wait-online.service'; then
+        systemctl enable systemd-networkd-wait-online.service >/dev/null 2>&1 || true
+        log_info "Enabled systemd-networkd-wait-online.service"
+    elif systemctl list-unit-files 2>/dev/null | grep -q '^NetworkManager-wait-online.service'; then
+        systemctl enable NetworkManager-wait-online.service >/dev/null 2>&1 || true
+        log_info "Enabled NetworkManager-wait-online.service"
+    else
+        log_warn "No wait-online service found; network-online.target may not block boot"
+    fi
+}
+
 install_systemd_services() {
     local deploy_path="/var/www/${HOSTNAME}"
     local service_file="/etc/systemd/system/${HOSTNAME}.service"
     log_step "Installing systemd service file at ${service_file}..."
 
+    local after_units="network-online.target"
+    local wants_units="network-online.target"
+    if [[ "$INSTALL_REDIS" == true ]]; then
+        after_units="${after_units} redis-server.service"
+        wants_units="${wants_units} redis-server.service"
+    fi
+
     cat > "${service_file}" << EOF
 [Unit]
 Description=${HOSTNAME} Worker
-After=network.target redis.service
+After=${after_units}
+Wants=${wants_units}
 
 [Service]
 Type=simple
@@ -376,6 +398,7 @@ main() {
     configure_deployer_sudo
     create_ssh_key_pair
     create_deploy_dir
+    enable_network_online_target
     install_systemd_services
 
     show_summary
