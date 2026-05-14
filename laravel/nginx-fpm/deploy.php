@@ -5,7 +5,7 @@ require 'contrib/rsync.php';
 require 'recipe/laravel.php';
 
 // Config
-set('http_user', 'www-data');
+set('http_user', 'www-data'); // If you use frankenphp then replace http_user with frankenphp
 set('keep_releases', 5); // Keep 5 releases
 
 /**
@@ -17,30 +17,29 @@ set('rsync_src', __DIR__);
 
 // Hosts
 host('laravel.senku.stream') // Name of the server
-    ->set('hostname', 'laravel.senku.stream')
+    ->set('hostname', 'server.laravel.senku.stream')
     ->set('remote_user', 'deployer') // SSH user
-    ->set('deploy_path', '/var/www/html'); // Deploy path
+    ->set('deploy_path', '/var/www/html') // Deploy path
+    ->set('dotenv_var', 'DOTENV');
 
 // Hooks
 task('deploy:secrets', function () {
-    file_put_contents(__DIR__.'/.env', getenv('DOTENV'));
-    upload('.env', get('deploy_path').'/shared');
+    $file = getenv(get('dotenv_var'));
+    upload($file, get('deploy_path').'/shared/.env');
 });
 
 task('deploy:update_code')->disable();
 after('deploy:update_code', 'rsync');
 task('deploy', [
     'deploy:prepare',
-    'deploy:secrets', // Deploy secrets
+    'deploy:secrets',
     'deploy:vendors',
-    'artisan:storage:link', // |
-    'artisan:view:cache',   // |
-    'artisan:config:cache', // | Laravel specific steps
-    'artisan:optimize',     // |
-    'artisan:migrate',      // | Run artisan migrate if you need it, if not then just comment it!
-    // 'artisan:horizon:terminate',
-    // 'artisan:horizon:publish',
+    'deploy:writable',
+    'artisan:storage:link',
+    'artisan:migrate',
+    'artisan:optimize',
     'deploy:publish',
+    'artisan:queue:restart',
 ]);
 
 after('deploy:failed', 'deploy:unlock');
