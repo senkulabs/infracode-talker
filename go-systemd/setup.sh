@@ -98,17 +98,89 @@ install_chromium() {
         return
     fi
 
-    log_step "Installing Chromium..."
-    apt install -y chromium-browser 2>/dev/null || apt install -y chromium
+    log_step "Installing ungoogled-chromium (portable)..."
 
-    CHROMIUM_PATH=$(command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || echo "")
+    # Ensure download tools present
+    apt install -y wget curl tar xz-utils
 
-    if [[ -z "$CHROMIUM_PATH" ]]; then
-        log_error "Chromium installation failed"
+    # Fetch latest release tag via GitHub API
+    local api_url="https://api.github.com/repos/ungoogled-software/ungoogled-chromium-portablelinux/releases/latest"
+    local version
+    version=$(curl -fsSL "$api_url" | grep -oP '"tag_name":\s*"\K[^"]+')
+
+    if [[ -z "$version" ]]; then
+        log_error "Could not determine latest ungoogled-chromium version"
         exit 1
     fi
 
-    log_info "Chromium installed at: ${CHROMIUM_PATH}"
+    log_info "Latest ungoogled-chromium version: ${version}"
+
+    local filename="ungoogled-chromium-${version}-x86_64_linux.tar.xz"
+    local download_url="https://github.com/ungoogled-software/ungoogled-chromium-portablelinux/releases/download/${version}/${filename}"
+
+    # Fetch SHA256: try GitHub release asset first, fall back to binaries page
+    local sha256=""
+    local sha256_asset_url="https://github.com/ungoogled-software/ungoogled-chromium-portablelinux/releases/download/${version}/${filename}.sha256"
+    sha256=$(curl -fsSL "$sha256_asset_url" 2>/dev/null | grep -oP '^[a-f0-9]{64}' | head -1 || true)
+
+    if [[ -z "$sha256" ]]; then
+        log_info "SHA256 asset not found in release; fetching from binaries page..."
+        local binaries_page="https://ungoogled-software.github.io/ungoogled-chromium-binaries/releases/linux_portable/64bit/${version}"
+        sha256=$(curl -fsSL "$binaries_page" 2>/dev/null | grep -oP '[a-f0-9]{64}' | head -1 || true)
+    fi
+
+    if [[ -z "$sha256" ]]; then
+        log_error "Could not fetch SHA256 checksum for ${filename}"
+        exit 1
+    fi
+
+    log_info "Expected SHA256: ${sha256}"
+
+    # Download
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+
+    log_step "Downloading ${filename}..."
+    if ! wget -q --show-progress -O "${tmp_dir}/${filename}" "$download_url"; then
+        rm -rf "$tmp_dir"
+        log_error "Download failed: ${download_url}"
+        exit 1
+    fi
+
+    # Verify checksum
+    log_step "Verifying checksum..."
+    if ! echo "${sha256}  ${tmp_dir}/${filename}" | sha256sum -c; then
+        rm -rf "$tmp_dir"
+        log_error "Checksum verification FAILED — aborting"
+        exit 1
+    fi
+    log_info "Checksum OK"
+
+    # Extract
+    log_step "Extracting to /opt/..."
+    tar -xf "${tmp_dir}/${filename}" -C /opt/
+    rm -rf "$tmp_dir"
+
+    # Move to stable path
+    local extracted_dir
+    extracted_dir=$(find /opt -maxdepth 1 -name "ungoogled-chromium-${version}*" -type d | head -1)
+
+    if [[ -z "$extracted_dir" ]]; then
+        log_error "Extracted directory not found under /opt/"
+        exit 1
+    fi
+
+    rm -rf /opt/ungoogled-chromium
+    mv "$extracted_dir" /opt/ungoogled-chromium
+
+    CHROMIUM_PATH="/opt/ungoogled-chromium/chrome"
+
+    if [[ ! -f "$CHROMIUM_PATH" ]]; then
+        log_error "Chrome binary not found at ${CHROMIUM_PATH}"
+        exit 1
+    fi
+
+    log_info "ungoogled-chromium installed at: ${CHROMIUM_PATH}"
 }
 
 install_acl() {
