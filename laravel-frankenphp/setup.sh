@@ -359,7 +359,7 @@ install_acl() {
     log_info "ACL installed successfully"
 }
 
-# Install Supervisor (process manager for Laravel queue workers / Horizon)
+# Step 7: Install Supervisor (process manager for Laravel queue workers / Horizon)
 install_supervisor() {
     log_step "Installing Supervisor..."
     apt install -y supervisor
@@ -376,7 +376,7 @@ install_supervisor() {
     fi
 }
 
-# Step 7: Create deployer user
+# Step 8: Create deployer user
 create_deployer_user() {
     if id "deployer" &>/dev/null; then
         log_warn "User 'deployer' exists"
@@ -387,7 +387,27 @@ create_deployer_user() {
     fi
 }
 
-# Step 7a: Grant access deployer and frankenphp users to /var/www
+# Step 9: Create SSH Key Pair for deployer user
+create_ssh_key_pair() {
+    log_step "Creating SSH Key Pair for deployer user..."
+
+    sudo -u deployer mkdir -p /home/deployer/.ssh
+    sudo -u deployer ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
+    sudo -u deployer sh -c 'cd /home/deployer/.ssh && cat id_ed25519.pub >> authorized_keys'
+    sudo -u deployer chmod 600 /home/deployer/.ssh/authorized_keys
+    sudo -u deployer chmod 700 /home/deployer/.ssh
+
+    log_info "SSH Key Pair created successfully"
+}
+
+# Step 10: Create www directory
+create_www_dir() {
+    log_step "Creating www directory"
+    mkdir -p /var/www
+    log_info "The www directory created"
+}
+
+# Step 11: Grant access deployer and frankenphp users to /var/www
 grant_var_www_directory() {
     log_step "Grant access /var/www directory for deployer and frankenphp users"
     setfacl -R -m u:deployer:rwx -m d:u:deployer:rwx /var/www
@@ -395,7 +415,29 @@ grant_var_www_directory() {
     log_info "The access to /var/www directory has been granted."
 }
 
-# Step 7b: Grant deployer passwordless sudo for supervisorctl (needed in CI/CD deploys)
+# Step 12: Create site Caddyfile (optional)
+create_site_caddyfile() {
+    if [[ "$SKIP_CADDYFILE" == true ]]; then
+        log_info "Skipping site Caddyfile creation (--skip-caddyfile)"
+        return
+    fi
+
+    log_step "Creating site Caddyfile for ${HOSTNAME}..."
+
+    mkdir -p /etc/frankenphp/Caddyfile.d
+
+    cat > /etc/frankenphp/Caddyfile.d/${HOSTNAME}.caddyfile <<EOF
+${HOSTNAME} {
+    root * /var/www/${HOSTNAME}/current/public
+    encode zstd br gzip
+    php_server
+}
+EOF
+
+    log_info "Site Caddyfile created at /etc/frankenphp/Caddyfile.d/${HOSTNAME}.caddyfile"
+}
+
+# Step 13: Grant deployer passwordless sudo for supervisorctl (needed in CI/CD deploys)
 configure_deployer_sudo() {
     log_step "Configuring passwordless sudo for deployer (supervisorctl)..."
 
@@ -416,48 +458,6 @@ EOF
         log_error "Sudoers syntax invalid; aborting"
         exit 1
     fi
-}
-
-# Step 8: Create SSH Key Pair
-create_ssh_key_pair() {
-    log_step "Creating SSH Key Pair for deployer user..."
-
-    sudo -u deployer mkdir -p /home/deployer/.ssh
-    sudo -u deployer ssh-keygen -t ed25519 -C "Deploy web app with CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
-    sudo -u deployer sh -c 'cd /home/deployer/.ssh && cat id_ed25519.pub >> authorized_keys'
-    sudo -u deployer chmod 600 /home/deployer/.ssh/authorized_keys
-    sudo -u deployer chmod 700 /home/deployer/.ssh
-
-    log_info "SSH Key Pair created successfully"
-}
-
-# Step 9a: Create www directory
-create_www_dir() {
-    log_step "Creating www directory"
-    mkdir -p /var/www
-    log_info "The www directory created"
-}
-
-# Step 9b: Create site Caddyfile (optional)
-create_site_caddyfile() {
-    if [[ "$SKIP_CADDYFILE" == true ]]; then
-        log_info "Skipping site Caddyfile creation (--skip-caddyfile)"
-        return
-    fi
-
-    log_step "Creating site Caddyfile for ${HOSTNAME}..."
-
-    mkdir -p /etc/frankenphp/Caddyfile.d
-
-    cat > /etc/frankenphp/Caddyfile.d/${HOSTNAME}.caddyfile <<EOF
-${HOSTNAME} {
-    root * /var/www/${HOSTNAME}/current/public
-    encode zstd br gzip
-    php_server
-}
-EOF
-
-    log_info "Site Caddyfile created at /etc/frankenphp/Caddyfile.d/${HOSTNAME}.caddyfile"
 }
 
 # Display summary
@@ -617,11 +617,11 @@ main() {
     install_acl
     install_supervisor
     create_deployer_user
-    grant_var_www_directory
-    configure_deployer_sudo
     create_ssh_key_pair
     create_www_dir
+    grant_var_www_directory
     create_site_caddyfile
+    configure_deployer_sudo
 
     show_summary
     display_ssh_info
