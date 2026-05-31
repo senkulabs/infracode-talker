@@ -290,29 +290,6 @@ create_deployer_user() {
     fi
 }
 
-
-configure_deployer_sudo() {
-    log_step "Configuring passwordless sudo for deployer..."
-
-    local sudoers_file="/etc/sudoers.d/deployer-worker"
-    local tmp_file
-    tmp_file="$(mktemp)"
-
-    cat > "$tmp_file" << 'EOF'
-deployer ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
-EOF
-
-    if visudo -cf "$tmp_file" >/dev/null 2>&1; then
-        install -m 0440 -o root -g root "$tmp_file" "$sudoers_file"
-        rm -f "$tmp_file"
-        log_info "Sudoers entry installed at ${sudoers_file}"
-    else
-        rm -f "$tmp_file"
-        log_error "Sudoers syntax invalid; aborting"
-        exit 1
-    fi
-}
-
 create_ssh_key_pair() {
     if [[ -f /home/deployer/.ssh/id_ed25519 ]]; then
         log_warn "SSH key already exists — skipping"
@@ -459,7 +436,6 @@ main() {
     install_redis_cli
     install_redis
     create_deployer_user
-    configure_deployer_sudo
     create_ssh_key_pair
     create_deploy_dir
     enable_network_online_target
