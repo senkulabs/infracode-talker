@@ -350,49 +350,6 @@ enable_network_online_target() {
     fi
 }
 
-install_systemd_services() {
-    local deploy_path="/opt/${HOSTNAME}"
-    local service_file="/etc/systemd/system/${HOSTNAME}.service"
-    log_step "Installing systemd service file at ${service_file}..."
-
-    local after_units="network-online.target"
-    local wants_units="network-online.target"
-    if [[ "$INSTALL_REDIS" == true ]]; then
-        after_units="${after_units} redis-server.service"
-        wants_units="${wants_units} redis-server.service"
-    fi
-
-    cat > "${service_file}" << EOF
-[Unit]
-Description=${HOSTNAME} Worker
-After=${after_units}
-Wants=${wants_units}
-
-[Service]
-Type=simple
-User=deployer
-Group=deployer
-WorkingDirectory=${deploy_path}/current
-ExecStart=${deploy_path}/current/bin/gladion-probe
-EnvironmentFile=${deploy_path}/shared/.env
-Restart=on-failure
-RestartSec=5s
-TimeoutStopSec=60s
-KillMode=mixed
-KillSignal=SIGTERM
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=${HOSTNAME}
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable "${HOSTNAME}"
-    log_info "Service installed and enabled: ${HOSTNAME}.service (start after first deploy)"
-}
-
 show_summary() {
     local deploy_path="/opt/${HOSTNAME}"
     echo ""
@@ -418,13 +375,6 @@ show_summary() {
     echo -e "✅ Deployer user ready"
     echo -e "✅ Sudoers configured: /etc/sudoers.d/deployer-worker"
     echo -e "✅ Deploy directory: ${deploy_path}"
-    echo -e "✅ Service installed and enabled: ${HOSTNAME}.service"
-    echo ""
-    echo -e "${YELLOW}Important Notes:${NC}"
-    echo -e "• Service is enabled but NOT started — start after first deploy:"
-    echo -e "  systemctl start ${HOSTNAME}"
-    echo -e "• View logs:"
-    echo -e "  journalctl -u ${HOSTNAME} -f"
     if [[ "$INSTALL_REDIS" == true ]]; then
         echo -e "• Redis password: ${REDIS_PASS}"
     fi
@@ -513,7 +463,6 @@ main() {
     create_ssh_key_pair
     create_deploy_dir
     enable_network_online_target
-    # install_systemd_services
 
     show_summary
     display_ssh_info
