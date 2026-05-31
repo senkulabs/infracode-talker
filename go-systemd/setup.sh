@@ -190,7 +190,8 @@ install_bun_lighthouse() {
 
     log_step "Installing bun..."
     apt install -y unzip
-    BUN_INSTALL=/usr/local curl -fsSL https://bun.sh/install | bash
+    export BUN_INSTALL=/usr/local
+    curl -fsSL https://bun.sh/install | bash
 
     if [[ ! -f /usr/local/bin/bun ]]; then
         log_error "bun binary not found at /usr/local/bin/bun"
