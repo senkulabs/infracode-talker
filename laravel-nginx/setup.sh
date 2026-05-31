@@ -395,29 +395,6 @@ create_deployer_user() {
     fi
 }
 
-# Step 11: Grant deployer passwordless sudo for supervisorctl (needed in CI/CD deploys)
-configure_deployer_sudo() {
-    log_step "Configuring passwordless sudo for deployer (supervisorctl)..."
-
-    local sudoers_file="/etc/sudoers.d/deployer"
-    local tmp_file
-    tmp_file="$(mktemp)"
-
-    cat > "$tmp_file" <<'EOF'
-deployer ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
-EOF
-
-    if visudo -cf "$tmp_file" >/dev/null 2>&1; then
-        install -m 0440 -o root -g root "$tmp_file" "$sudoers_file"
-        rm -f "$tmp_file"
-        log_info "Sudoers entry installed at ${sudoers_file}"
-    else
-        rm -f "$tmp_file"
-        log_error "Sudoers syntax invalid; aborting"
-        exit 1
-    fi
-}
-
 # Step 13: Create SSH Key Pair
 create_ssh_key_pair() {
     log_step "Creating SSH Key Pair for deployer user..."
@@ -585,7 +562,6 @@ main() {
     install_acl
     install_supervisor
     create_deployer_user
-    configure_deployer_sudo
     create_ssh_key_pair
 
     show_summary
