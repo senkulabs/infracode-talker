@@ -207,6 +207,14 @@ install_bun_lighthouse() {
         exit 1
     fi
     log_info "lighthouse installed: $(/usr/local/bin/lighthouse --version)"
+
+    log_info "symlink bun as node to resolve lighthouse CLI issue"
+    ln -s $(which bun) /usr/bin/node
+    if [[ ! -f /usr/bin/node ]]; then
+        log_error "symlink bun as node failed!"
+        exit 1
+    fi
+    log_info "symlink bun as node is done."
 }
 
 install_acl() {
