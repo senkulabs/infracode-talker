@@ -183,6 +183,31 @@ install_chromium() {
     log_info "ungoogled-chromium installed at: ${CHROMIUM_PATH}"
 }
 
+install_bun_lighthouse() {
+    if [[ "$INSTALL_CHROMIUM" == false ]]; then
+        return
+    fi
+
+    log_step "Installing bun..."
+    apt install -y unzip
+    BUN_INSTALL=/usr/local curl -fsSL https://bun.sh/install | bash
+
+    if [[ ! -f /usr/local/bin/bun ]]; then
+        log_error "bun binary not found at /usr/local/bin/bun"
+        exit 1
+    fi
+    log_info "bun installed: $(/usr/local/bin/bun --version)"
+
+    log_step "Installing lighthouse CLI (global)..."
+    bun install -g lighthouse --registry=https://registry.npmjs.org
+
+    if [[ ! -f /usr/local/bin/lighthouse ]]; then
+        log_error "lighthouse installation failed"
+        exit 1
+    fi
+    log_info "lighthouse installed: $(/usr/local/bin/lighthouse --version)"
+}
+
 install_acl() {
     log_step "Installing ACL..."
     apt install -y acl
@@ -368,6 +393,8 @@ show_summary() {
     echo ""
     if [[ "$INSTALL_CHROMIUM" == true ]]; then
         echo -e "✅ Chromium installed: ${CHROMIUM_PATH}"
+        echo -e "✅ bun installed: $(/usr/local/bin/bun --version 2>/dev/null || echo 'unknown')"
+        echo -e "✅ lighthouse installed (global)"
     else
         echo -e "⏭️  Chromium skipped (use --with-chromium to install)"
     fi
@@ -468,6 +495,7 @@ main() {
     apt_update
     configure_ufw
     install_chromium
+    install_bun_lighthouse
     install_acl
     install_redis_cli
     install_redis
@@ -476,7 +504,7 @@ main() {
     create_ssh_key_pair
     create_deploy_dir
     enable_network_online_target
-    install_systemd_services
+    # install_systemd_services
 
     show_summary
     display_ssh_info
