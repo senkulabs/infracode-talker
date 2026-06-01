@@ -181,6 +181,22 @@ install_chromium() {
     fi
 
     log_info "ungoogled-chromium installed at: ${CHROMIUM_PATH}"
+
+    log_info "Install runtime deps for ungoogled-chromium"
+    # This based on command: `ldd /opt/ungoogled-chromium/chrome | grep "not found"`
+    apt-get install -y \
+        libatk1.0-0t64 \
+        libatk-bridge2.0-0t64 \
+        libcups2t64 \
+        libasound2t64 \
+        libgbm1 \
+        libcairo2 \
+        libpango-1.0-0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libatspi2.0-0t64
 }
 
 install_bun_lighthouse() {
