@@ -12,6 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 INSTALL_CHROMIUM=false
+INSTALL_LIGHTPANDA=false
 INSTALL_REDIS=false
 INSTALL_REDIS_CLI=false
 REDIS_PASS=""
@@ -35,6 +36,7 @@ REQUIRED ARGUMENTS:
 
 OPTIONS:
     --with-chromium         Install Chromium (required for lighthouse worker)
+    --with-lightpanda       Install Lightpanda headless browser
     --with-redis            Install Redis server (includes redis-cli)
     --with-redis-cli        Install redis-cli only (use when Redis runs elsewhere)
     --redis-pass=PASSWORD   Redis password (auto-generated if --with-redis but omitted)
@@ -54,6 +56,7 @@ parse_arguments() {
         case $1 in
             --hostname=*) HOSTNAME="${1#*=}"; shift ;;
             --with-chromium) INSTALL_CHROMIUM=true; shift ;;
+            --with-lightpanda) INSTALL_LIGHTPANDA=true; shift ;;
             --with-redis) INSTALL_REDIS=true; shift ;;
             --with-redis-cli) INSTALL_REDIS_CLI=true; shift ;;
             --redis-pass=*) REDIS_PASS="${1#*=}"; shift ;;
@@ -233,6 +236,23 @@ install_bun_lighthouse() {
     log_info "symlink bun as node is done."
 }
 
+install_lightpanda() {
+    if [[ "$INSTALL_LIGHTPANDA" == false ]]; then
+        log_info "Skipping Lightpanda installation (use --with-lightpanda to install)"
+        return
+    fi
+
+    log_step "Installing Lightpanda headless browser..."
+    curl -fsSL https://pkg.lightpanda.io/install.sh | LIGHTPANDA_DIR=/usr/local/bin bash
+
+    if command -v lightpanda >/dev/null 2>&1; then
+        log_info "Lightpanda installed: $(lightpanda --version 2>/dev/null || echo 'unknown')"
+    else
+        log_error "Lightpanda installation failed"
+        exit 1
+    fi
+}
+
 install_acl() {
     log_step "Installing ACL..."
     apt install -y acl
@@ -357,6 +377,11 @@ show_summary() {
     else
         echo -e "⏭️  Chromium skipped (use --with-chromium to install)"
     fi
+    if [[ "$INSTALL_LIGHTPANDA" == true ]]; then
+        echo -e "✅ Lightpanda installed"
+    else
+        echo -e "⏭️  Lightpanda skipped (use --with-lightpanda to install)"
+    fi
     echo -e "✅ ACL installed"
     if [[ "$INSTALL_REDIS" == true ]]; then
         echo -e "✅ Redis installed and running"
@@ -431,6 +456,7 @@ main() {
     echo -e "• Hostname: ${HOSTNAME}"
     echo -e "• Deploy path: /opt/${HOSTNAME}"
     echo -e "• Install Chromium: ${INSTALL_CHROMIUM}"
+    echo -e "• Install Lightpanda: ${INSTALL_LIGHTPANDA}"
     echo -e "• Install Redis (server): ${INSTALL_REDIS}"
     echo -e "• Install redis-cli only: ${INSTALL_REDIS_CLI}"
     echo ""
@@ -448,6 +474,7 @@ main() {
     configure_ufw
     install_chromium
     install_bun_lighthouse
+    install_lightpanda
     install_acl
     install_redis_cli
     install_redis
