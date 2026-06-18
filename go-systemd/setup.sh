@@ -32,7 +32,7 @@ USAGE:
     $0 --hostname=NAME [OPTIONS]
 
 REQUIRED ARGUMENTS:
-    --hostname=NAME         Deploy directory name (e.g. sandbox.gladion-worker)
+    --hostname=NAME         Deploy directory name (e.g. production.myapp)
 
 OPTIONS:
     --with-chromium         Install Chromium (required for lighthouse worker)
@@ -43,10 +43,10 @@ OPTIONS:
     --help                  Show this help message
 
 EXAMPLES:
-    $0 --hostname=sandbox.gladion-worker
-    $0 --hostname=sandbox.gladion-worker --with-chromium
-    $0 --hostname=sandbox.gladion-worker --with-chromium --with-redis
-    $0 --hostname=sandbox.gladion-worker --with-redis-cli
+    $0 --hostname=production.myapp
+    $0 --hostname=production.myapp --with-chromium
+    $0 --hostname=production.myapp --with-chromium --with-redis
+    $0 --hostname=production.myapp --with-redis-cli
 
 EOF
 }
@@ -334,7 +334,7 @@ create_ssh_key_pair() {
 
     log_step "Creating SSH key pair for deployer..."
     sudo -u deployer mkdir -p /home/deployer/.ssh
-    sudo -u deployer ssh-keygen -t ed25519 -C "Deploy gladion-worker via CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
+    sudo -u deployer ssh-keygen -t ed25519 -C "Deploy ${HOSTNAME} via CI/CD" -N "" -f /home/deployer/.ssh/id_ed25519
     sudo -u deployer sh -c 'cd /home/deployer/.ssh && cat id_ed25519.pub >> authorized_keys'
     sudo -u deployer chmod 600 /home/deployer/.ssh/authorized_keys
     sudo -u deployer chmod 700 /home/deployer/.ssh
@@ -446,7 +446,7 @@ display_ssh_info() {
 }
 
 main() {
-    log_info "Starting Gladion Worker setup..."
+    log_info "Starting Go deployer setup..."
 
     parse_arguments "$@"
     validate_arguments
