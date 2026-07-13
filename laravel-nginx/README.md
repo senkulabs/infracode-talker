@@ -23,9 +23,13 @@ This is a brief instruction how to setup web server for Laravel framework using:
 
 2. Once droplet created, create `A record` by using the IP public of droplet into DNS. I'm using Cloudflare as DNS. We will use the `Name` of domain as a hostname in the `deploy.php` file.
 
-| Type | Name                    | Content             | Proxy Status | TTL      |
-|:-----|:------------------------|:--------------------|:-------------|:---------|
-| A    | laravel.senku.stream    | droplet-ip-public   | DNS only     | &nbsp;   |
+| Type | Name | Content            | Proxy Status | TTL    |
+|:-----|:-----|:--------------------|:-------------|:-------|
+| A    | web.app | droplet-ip-public   | Proxied      | &nbsp; |
+
+Only one record, kept simple. Using **Proxied**, real droplet IP hidden behind Cloudflare's proxy IPs — visitors and attackers see only Cloudflare's IP, not yours. Bonus: CDN caching, DDoS protection, free SSL termination, no direct exposure of origin server.
+
+Use `web.app` as the hostname in `deploy.php` and `SSH_KNOWN_HOSTS`.
 
 3. Put `setup.sh` file into root directory in the droplet and make it executable. This executable file do:
 
@@ -35,6 +39,7 @@ This is a brief instruction how to setup web server for Laravel framework using:
 - Create `/var/www` directory
 - Install PostgreSQL
 - Configure PostgreSQL database
+- Setup daily DB backup to Cloudflare R2 (optional)
 - Install Redis
 - Install Certbot
 - Install ACL
@@ -50,6 +55,9 @@ chmod +x setup.sh
 
 > [!TIP]
 > If you want to install redis and/or mariadb, it will be like this: `./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword --with-redis --db-engine=mariadb`.
+
+> [!TIP]
+> To enable daily DB backups to Cloudflare R2, add `--with-backup` plus the R2 credentials: `./setup.sh --db-name=yourdbname --db-user=yourdbuser --db-pass=yourdbpassword --with-backup --r2-endpoint=https://xxxx.r2.cloudflarestorage.com --r2-bucket=my-backups --r2-access-key=xxx --r2-secret-key=xxx`. This installs the AWS CLI, drops a backup script at `/usr/local/bin/{mariadb,postgresql}-backup.sh`, and schedules it via cron at 00:00 daily.
 
 After `setup.sh` executed, it will generate `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS` from `deployer` user. These are used for GitLab CI/CD. Store it into GitLab CI/CD variables. So, save it!
 
