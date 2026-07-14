@@ -365,11 +365,14 @@ EOF
     log_info "Password: ${DB_PASS}"
 }
 
-# Step 6c: Install AWS CLI (required for Cloudflare R2 backup uploads)
+# Step 6c: Install AWS CLI v2 via snap (required for Cloudflare R2 backup uploads)
 install_aws_cli() {
-    log_step "Installing AWS CLI (used for Cloudflare R2 uploads)..."
-    apt install -y awscli
-    log_info "AWS CLI installed successfully"
+    log_step "Installing AWS CLI v2 via snap (used for Cloudflare R2 uploads)..."
+    if ! command -v snap >/dev/null 2>&1; then
+        apt install -y snapd
+    fi
+    snap install aws-cli --classic
+    log_info "AWS CLI installed successfully: $(aws --version)"
 }
 
 # Step 6d: Setup daily DB backup script + cron (optional)
